@@ -6,7 +6,7 @@ rust-version = "1.85"
 description = "Internal crate for orbitflare-sdk. Use orbitflare-sdk directly instead."
 authors = ["OrbitFlare"]
 license = "MIT"
-repository = "https://github.com/orbitflare/orbitflare-sdk"
+repository = "https://github.com/orbitflare/orbitflare-sdk-rs"
 readme = "README.md"
 
 [dependencies]

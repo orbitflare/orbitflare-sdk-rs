@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="https://raw.githubusercontent.com/orbitflare/orbitflare-sdk/main/assets/banner.png" alt="orbitflare-sdk" width="100%">
+  <img src="https://raw.githubusercontent.com/orbitflare/orbitflare-sdk-rs/main/assets/banner.png" alt="orbitflare-sdk" width="100%">
 </p>
 
 <p align="center">
