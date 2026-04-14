@@ -30,9 +30,9 @@ Or in your `Cargo.toml`:
 
 ```toml
 [dependencies]
-orbitflare-sdk = "0.1.0"                                          # RPC only (default)
-orbitflare-sdk = { version = "0.1.0", features = ["grpc"] }       # gRPC
-orbitflare-sdk = { version = "0.1.0", features = ["all"] }        # Everything
+orbitflare-sdk = "0.1.1"                                          # RPC only (default)
+orbitflare-sdk = { version = "0.1.1", features = ["grpc"] }       # gRPC
+orbitflare-sdk = { version = "0.1.1", features = ["all"] }        # Everything
 ```
 
 ## RPC

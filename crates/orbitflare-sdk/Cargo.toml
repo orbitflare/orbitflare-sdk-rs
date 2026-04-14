@@ -1,6 +1,6 @@
 [package]
 name = "orbitflare-sdk"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2024"
 rust-version = "1.85"
 description = "Rust SDK for OrbitFlare - RPC, gRPC (Yellowstone), JetStream, and WebSocket clients for Solana"
@@ -10,6 +10,7 @@ repository = "https://github.com/orbitflare/orbitflare-sdk"
 homepage = "https://orbitflare.com"
 keywords = ["solana", "grpc", "rpc", "orbitflare", "yellowstone"]
 categories = ["api-bindings", "development-tools"]
+readme = "../../README.md"
 
 [features]
 default = ["rpc"]
