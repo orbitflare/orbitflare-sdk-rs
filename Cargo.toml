@@ -1,0 +1,6 @@
+[workspace]
+resolver = "2"
+members = [
+    "crates/orbitflare-sdk-proto",
+    "crates/orbitflare-sdk",
+]
