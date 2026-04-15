@@ -17,10 +17,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install Rust
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          components: rustfmt, clippy
+      - name: Install Rust (from rust-toolchain.toml)
+        run: rustup show active-toolchain || rustup toolchain install
 
       - name: Install protoc
         uses: arduino/setup-protoc@v3
@@ -39,13 +37,6 @@ jobs:
       - name: cargo test
         run: cargo test --features all -- --test-threads=1
 
-      - name: cargo build --no-default-features
-        run: cargo build --no-default-features
+      - name: cargo build --release
+        run: cargo build --release --features all
 
-      - name: cargo build each feature
-        run: |
-          cargo build --no-default-features --features rpc
-          cargo build --no-default-features --features ws
-          cargo build --no-default-features --features grpc
-          cargo build --no-default-features --features jetstream
-          cargo build --no-default-features --features all

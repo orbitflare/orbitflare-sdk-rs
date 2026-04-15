@@ -98,10 +98,7 @@ fn with_endpoint_prepends_host_on_wrapping_variants() {
             code: 16,
             message: "rejected".into(),
         },
-        Error::Transport(Box::new(std::io::Error::new(
-            std::io::ErrorKind::Other,
-            "rejected",
-        ))),
+        Error::Transport(Box::new(std::io::Error::other("rejected"))),
     ];
 
     for e in cases {
