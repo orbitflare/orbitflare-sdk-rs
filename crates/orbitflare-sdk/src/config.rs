@@ -60,8 +60,7 @@ pub(crate) fn read_yaml<T: serde::de::DeserializeOwned>(path: &str) -> Result<T>
         .map_err(|e| Error::Config(format!("failed to read {path}: {e}")))?;
     let expanded = shellexpand::env(&raw)
         .map_err(|e| Error::Config(format!("failed to expand env vars: {e}")))?;
-    serde_yml::from_str(&expanded)
-        .map_err(|e| Error::Config(format!("failed to parse yaml: {e}")))
+    serde_yml::from_str(&expanded).map_err(|e| Error::Config(format!("failed to parse yaml: {e}")))
 }
 
 fn parse_commitment(s: &str) -> i32 {

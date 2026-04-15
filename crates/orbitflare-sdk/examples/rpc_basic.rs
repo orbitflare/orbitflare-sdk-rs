@@ -1,4 +1,4 @@
-use orbitflare_sdk::{RpcClientBuilder, Result};
+use orbitflare_sdk::{Result, RpcClientBuilder};
 use serde_json::json;
 
 #[tokio::main]
@@ -13,7 +13,9 @@ async fn main() -> Result<()> {
     let slot = client.get_slot().await?;
     println!("slot: {slot}");
 
-    let balance = client.get_balance("CKs1E69a2e9TmH4mKKLrXFF8kD3ZnwKjoEuXa6sz9WqX").await?;
+    let balance = client
+        .get_balance("CKs1E69a2e9TmH4mKKLrXFF8kD3ZnwKjoEuXa6sz9WqX")
+        .await?;
     println!("balance: {balance} lamports");
 
     let (blockhash, last_valid) = client.get_latest_blockhash().await?;

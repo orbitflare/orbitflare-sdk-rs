@@ -1,5 +1,5 @@
-use orbitflare_sdk::{GeyserClientBuilder, Result};
 use orbitflare_sdk::proto::geyser::subscribe_update::UpdateOneof;
+use orbitflare_sdk::{GeyserClientBuilder, Result};
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -9,8 +9,8 @@ async fn main() -> Result<()> {
         .url("http://ny.rpc.orbitflare.com:10000")
         .build()?;
 
-    let config_path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
-        .join("examples/config/grpc.yml");
+    let config_path =
+        std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("examples/config/grpc.yml");
     let mut stream = client.subscribe_yaml(config_path.to_str().unwrap())?;
 
     while let Some(update) = stream.next().await {

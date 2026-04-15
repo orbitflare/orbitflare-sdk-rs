@@ -1,20 +1,40 @@
-use orbitflare_sdk::error::Error;
 use orbitflare_sdk::RetryPolicy;
+use orbitflare_sdk::error::Error;
 use std::time::Duration;
 
 #[test]
 fn retryable_classification() {
     let retryable: Vec<Error> = vec![
-        Error::Transport(Box::new(std::io::Error::new(std::io::ErrorKind::ConnectionReset, "x"))),
+        Error::Transport(Box::new(std::io::Error::new(
+            std::io::ErrorKind::ConnectionReset,
+            "x",
+        ))),
         Error::Timeout,
-        Error::RateLimited { retry_after: Some(Duration::from_secs(5)) },
+        Error::RateLimited {
+            retry_after: Some(Duration::from_secs(5)),
+        },
         Error::RateLimited { retry_after: None },
         Error::Stream("closed".into()),
-        Error::Rpc { code: -32005, message: "x".into() },
-        Error::Rpc { code: -32007, message: "x".into() },
-        Error::Rpc { code: -32014, message: "x".into() },
-        Error::Rpc { code: -32015, message: "x".into() },
-        Error::Rpc { code: -32016, message: "x".into() },
+        Error::Rpc {
+            code: -32005,
+            message: "x".into(),
+        },
+        Error::Rpc {
+            code: -32007,
+            message: "x".into(),
+        },
+        Error::Rpc {
+            code: -32014,
+            message: "x".into(),
+        },
+        Error::Rpc {
+            code: -32015,
+            message: "x".into(),
+        },
+        Error::Rpc {
+            code: -32016,
+            message: "x".into(),
+        },
     ];
     for e in retryable {
         assert!(e.is_retryable(), "should be retryable: {e}");
@@ -24,10 +44,22 @@ fn retryable_classification() {
         Error::Auth("bad".into()),
         Error::Config("bad".into()),
         Error::Serialization("bad".into()),
-        Error::Rpc { code: -32600, message: "x".into() },
-        Error::Rpc { code: -32602, message: "x".into() },
-        Error::Rpc { code: 0, message: "x".into() },
-        Error::Grpc { code: 16, message: "x".into() },
+        Error::Rpc {
+            code: -32600,
+            message: "x".into(),
+        },
+        Error::Rpc {
+            code: -32602,
+            message: "x".into(),
+        },
+        Error::Rpc {
+            code: 0,
+            message: "x".into(),
+        },
+        Error::Grpc {
+            code: 16,
+            message: "x".into(),
+        },
     ];
     for e in not_retryable {
         assert!(!e.is_retryable(), "should not be retryable: {e}");
@@ -37,33 +69,57 @@ fn retryable_classification() {
 #[test]
 fn retry_after_only_set_on_rate_limited() {
     assert_eq!(
-        Error::RateLimited { retry_after: Some(Duration::from_secs(30)) }.retry_after(),
+        Error::RateLimited {
+            retry_after: Some(Duration::from_secs(30))
+        }
+        .retry_after(),
         Some(Duration::from_secs(30)),
     );
     assert_eq!(Error::RateLimited { retry_after: None }.retry_after(), None);
     assert_eq!(Error::Timeout.retry_after(), None);
-    assert_eq!(Error::Rpc { code: -32005, message: "x".into() }.retry_after(), None);
+    assert_eq!(
+        Error::Rpc {
+            code: -32005,
+            message: "x".into()
+        }
+        .retry_after(),
+        None
+    );
 }
 
 #[test]
 fn with_endpoint_prepends_host_on_wrapping_variants() {
     let cases = [
-        Error::Rpc { code: -32404, message: "rejected".into() },
-        Error::Grpc { code: 16, message: "rejected".into() },
-        Error::Transport(Box::new(std::io::Error::new(std::io::ErrorKind::Other, "rejected"))),
+        Error::Rpc {
+            code: -32404,
+            message: "rejected".into(),
+        },
+        Error::Grpc {
+            code: 16,
+            message: "rejected".into(),
+        },
+        Error::Transport(Box::new(std::io::Error::new(
+            std::io::ErrorKind::Other,
+            "rejected",
+        ))),
     ];
 
     for e in cases {
         let e = e.with_endpoint("http://fra.rpc.orbitflare.com");
         let msg = format!("{e}");
-        assert!(msg.contains("[http://fra.rpc.orbitflare.com]"), "missing endpoint: {msg}");
+        assert!(
+            msg.contains("[http://fra.rpc.orbitflare.com]"),
+            "missing endpoint: {msg}"
+        );
         assert!(msg.contains("rejected"), "lost original message: {msg}");
     }
 }
 
 #[test]
 fn with_endpoint_passes_through_rate_limited() {
-    let e = Error::RateLimited { retry_after: Some(Duration::from_secs(10)) };
+    let e = Error::RateLimited {
+        retry_after: Some(Duration::from_secs(10)),
+    };
     let e = e.with_endpoint("http://fra.rpc.orbitflare.com");
     match e {
         Error::RateLimited { retry_after } => {
@@ -75,7 +131,10 @@ fn with_endpoint_passes_through_rate_limited() {
 
 #[test]
 fn with_endpoint_strips_api_key_from_host() {
-    let e = Error::Rpc { code: 0, message: "fail".into() };
+    let e = Error::Rpc {
+        code: 0,
+        message: "fail".into(),
+    };
     let e = e.with_endpoint("http://fra.rpc.orbitflare.com?api_key=ORBIT-SECRET-123");
     let msg = format!("{e}");
     assert!(!msg.contains("ORBIT-SECRET-123"), "leaked api_key: {msg}");
@@ -93,12 +152,18 @@ fn retry_policy_defaults() {
 
 #[test]
 fn retry_attempts_left() {
-    let finite = RetryPolicy { max_attempts: 3, ..Default::default() };
+    let finite = RetryPolicy {
+        max_attempts: 3,
+        ..Default::default()
+    };
     assert!(finite.has_attempts_left(1));
     assert!(finite.has_attempts_left(2));
     assert!(!finite.has_attempts_left(3));
 
-    let infinite = RetryPolicy { max_attempts: 0, ..Default::default() };
+    let infinite = RetryPolicy {
+        max_attempts: 0,
+        ..Default::default()
+    };
     assert!(infinite.has_attempts_left(999));
     assert!(infinite.has_attempts_left(u32::MAX));
 }

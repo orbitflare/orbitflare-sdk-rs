@@ -1,7 +1,7 @@
+use futures_util::{SinkExt, StreamExt};
+use serde_json::{Value, json};
 use std::collections::HashMap;
 use std::time::Duration;
-use futures_util::{SinkExt, StreamExt};
-use serde_json::{json, Value};
 use tokio::sync::{mpsc, oneshot};
 use tokio_tungstenite::tungstenite::Message;
 
@@ -30,10 +30,13 @@ impl WsSubscription {
     }
 
     pub async fn unsubscribe(self) {
-        let _ = self.cmd_tx.send(WsCommand::Unsubscribe {
-            sub_id: self.sub_id,
-            method: self.unsub_method,
-        }).await;
+        let _ = self
+            .cmd_tx
+            .send(WsCommand::Unsubscribe {
+                sub_id: self.sub_id,
+                method: self.unsub_method,
+            })
+            .await;
     }
 }
 
@@ -253,9 +256,8 @@ impl WsClient {
     }
 }
 
-type WsStream = tokio_tungstenite::WebSocketStream<
-    tokio_tungstenite::MaybeTlsStream<tokio::net::TcpStream>,
->;
+type WsStream =
+    tokio_tungstenite::WebSocketStream<tokio_tungstenite::MaybeTlsStream<tokio::net::TcpStream>>;
 
 async fn try_connect(endpoints: &EndpointSet) -> Result<(WsStream, usize)> {
     for i in 0..endpoints.len() {
@@ -271,7 +273,9 @@ async fn try_connect(endpoints: &EndpointSet) -> Result<(WsStream, usize)> {
             }
         }
     }
-    Err(Error::Transport("all ws endpoints failed".to_string().into()))
+    Err(Error::Transport(
+        "all ws endpoints failed".to_string().into(),
+    ))
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -287,8 +291,13 @@ async fn background_task(
     let mut attempt = 0u32;
 
     let result = run_connection(
-        initial_ws, &mut cmd_rx, &mut subs, ping_interval_secs, max_missed_pongs,
-    ).await;
+        initial_ws,
+        &mut cmd_rx,
+        &mut subs,
+        ping_interval_secs,
+        max_missed_pongs,
+    )
+    .await;
 
     if result.is_ok() {
         return;
@@ -322,8 +331,14 @@ async fn background_task(
         };
 
         match run_connection(
-            ws, &mut cmd_rx, &mut subs, ping_interval_secs, max_missed_pongs,
-        ).await {
+            ws,
+            &mut cmd_rx,
+            &mut subs,
+            ping_interval_secs,
+            max_missed_pongs,
+        )
+        .await
+        {
             Ok(()) => return,
             Err(e) => {
                 endpoints.mark_failure(idx);
@@ -479,7 +494,8 @@ async fn handle_text(
                 } => {
                     if let Some(error) = parsed.get("error") {
                         let code = error.get("code").and_then(|c| c.as_i64()).unwrap_or(0);
-                        let msg = error.get("message")
+                        let msg = error
+                            .get("message")
                             .and_then(|m| m.as_str())
                             .unwrap_or("subscribe failed");
                         let _ = result_tx.send(Err(Error::Rpc {
@@ -538,7 +554,11 @@ async fn auto_unsubscribe(sub_id: u64, parsed: &Value, write: &mut WsWrite) {
             let unsub_method = format!("{operation}Unsubscribe");
             let msg = json!({"jsonrpc":"2.0","id":0,"method":unsub_method,"params":[sub_id]});
             let _ = write.send(Message::text(msg.to_string())).await;
-            tracing::debug!(sub_id, unsub_method, "auto-unsubscribed orphaned subscription");
+            tracing::debug!(
+                sub_id,
+                unsub_method,
+                "auto-unsubscribed orphaned subscription"
+            );
         }
     }
 }

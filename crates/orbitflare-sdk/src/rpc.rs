@@ -1,6 +1,6 @@
-use std::time::Duration;
 use reqwest::Client;
-use serde_json::{json, Value};
+use serde_json::{Value, json};
+use std::time::Duration;
 
 use crate::endpoint::EndpointSet;
 use crate::error::{Error, Result, SanitizedUrl};
@@ -37,7 +37,6 @@ impl RpcClient {
             .unwrap_or("raw");
         self.execute(&parsed, method).await
     }
-
 
     pub async fn get_slot(&self) -> Result<u64> {
         let r = self
@@ -154,10 +153,7 @@ impl RpcClient {
             .ok_or_else(|| Error::Serialization("expected array".into()))
     }
 
-    pub async fn get_recent_prioritization_fees(
-        &self,
-        addresses: &[&str],
-    ) -> Result<Vec<Value>> {
+    pub async fn get_recent_prioritization_fees(&self, addresses: &[&str]) -> Result<Vec<Value>> {
         let r = self
             .request("getRecentPrioritizationFees", json!([addresses]))
             .await?;
@@ -221,17 +217,13 @@ impl RpcClient {
         options: GetTransactionsOptions,
     ) -> Result<GetTransactionsResult> {
         let result = self
-            .request(
-                "getTransactionsForAddress",
-                json!([address, options]),
-            )
+            .request("getTransactionsForAddress", json!([address, options]))
             .await?;
         Ok(GetTransactionsResult {
             data: result["data"].as_array().cloned().unwrap_or_default(),
             pagination_token: result["paginationToken"].as_str().map(|s| s.to_string()),
         })
     }
-
 
     async fn execute(&self, body: &Value, method: &str) -> Result<Value> {
         let mut last_err = None;
@@ -262,7 +254,8 @@ impl RpcClient {
                         let retryable = e.is_retryable();
 
                         if retryable && self.retry.has_attempts_left(attempt) {
-                            let delay = e.retry_after()
+                            let delay = e
+                                .retry_after()
                                 .unwrap_or_else(|| self.retry.delay_for_attempt(attempt));
                             tracing::warn!(
                                 method,
@@ -355,7 +348,6 @@ impl RpcClient {
         })
     }
 }
-
 
 pub struct RpcClientBuilder {
     url: Option<String>,

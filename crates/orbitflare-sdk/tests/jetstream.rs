@@ -8,7 +8,10 @@ async fn subscribe_yaml_missing_file() {
         .url("http://localhost:10000")
         .build()
         .unwrap();
-    let err = client.subscribe_yaml("nonexistent.yml").err().expect("expected error");
+    let err = client
+        .subscribe_yaml("nonexistent.yml")
+        .err()
+        .expect("expected error");
     match err {
         orbitflare_sdk::Error::Config(msg) => {
             assert!(msg.contains("failed to read"));
@@ -23,7 +26,8 @@ async fn subscribe_yaml_valid_config_loads() {
     std::fs::write(
         &path,
         "transactions:\n  test:\n    account_include:\n      - \"abc\"\n",
-    ).unwrap();
+    )
+    .unwrap();
 
     let client = JetstreamClientBuilder::new()
         .url("http://localhost:10000")

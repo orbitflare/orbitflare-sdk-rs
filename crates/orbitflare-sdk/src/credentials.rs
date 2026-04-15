@@ -19,7 +19,10 @@ mod tests {
     #[test]
     fn appends_with_existing_query() {
         let url = apply_api_key("http://fra.rpc.orbitflare.com?foo=bar", "ORBIT-123");
-        assert_eq!(url, "http://fra.rpc.orbitflare.com?foo=bar&api_key=ORBIT-123");
+        assert_eq!(
+            url,
+            "http://fra.rpc.orbitflare.com?foo=bar&api_key=ORBIT-123"
+        );
     }
 
     #[test]

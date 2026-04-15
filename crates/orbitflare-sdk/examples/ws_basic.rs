@@ -1,4 +1,4 @@
-use orbitflare_sdk::{WsClientBuilder, Result};
+use orbitflare_sdk::{Result, WsClientBuilder};
 
 #[tokio::main]
 async fn main() -> Result<()> {

@@ -5,8 +5,8 @@ use tokio_stream::StreamExt;
 use tonic::transport::Channel;
 
 use orbitflare_sdk_proto::geyser::{
-    geyser_client::GeyserClient as ProtoGeyserClient, SubscribeRequest, SubscribeRequestPing,
-    SubscribeUpdate, subscribe_update::UpdateOneof,
+    SubscribeRequest, SubscribeRequestPing, SubscribeUpdate,
+    geyser_client::GeyserClient as ProtoGeyserClient, subscribe_update::UpdateOneof,
 };
 
 use crate::endpoint::EndpointSet;
@@ -55,7 +55,12 @@ impl GeyserClient {
         let (tx, rx) = mpsc::channel(self.inner.channel_capacity);
         let (shutdown_tx, shutdown_rx) = watch::channel(false);
 
-        tokio::spawn(stream_task(Arc::clone(&self.inner), request, tx, shutdown_rx));
+        tokio::spawn(stream_task(
+            Arc::clone(&self.inner),
+            request,
+            tx,
+            shutdown_rx,
+        ));
 
         GeyserStream {
             rx,
@@ -135,7 +140,10 @@ async fn connect_and_stream(
     let mut client = ProtoGeyserClient::new(channel);
 
     let (outbound_tx, outbound_rx) = mpsc::channel::<SubscribeRequest>(4);
-    outbound_tx.send(request.clone()).await.map_err(|_| Error::Stream("outbound closed".into()))?;
+    outbound_tx
+        .send(request.clone())
+        .await
+        .map_err(|_| Error::Stream("outbound closed".into()))?;
 
     let outbound_stream = tokio_stream::wrappers::ReceiverStream::new(outbound_rx);
     let response: tonic::Response<tonic::Streaming<SubscribeUpdate>> =

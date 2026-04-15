@@ -1,4 +1,4 @@
-use orbitflare_sdk::{WsClientBuilder, Result};
+use orbitflare_sdk::{Result, WsClientBuilder};
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -10,10 +10,9 @@ async fn main() -> Result<()> {
         .await?;
 
     let mut slots = client.slot_subscribe().await?;
-    let mut usdc = client.account_subscribe(
-        "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
-        "confirmed",
-    ).await?;
+    let mut usdc = client
+        .account_subscribe("EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v", "confirmed")
+        .await?;
 
     println!("watching slots and USDC mint account...");
 

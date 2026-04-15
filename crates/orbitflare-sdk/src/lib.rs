@@ -24,8 +24,8 @@ pub use retry::RetryPolicy;
 
 #[cfg(feature = "rpc")]
 pub use rpc::{
-    GetTransactionsFilters, GetTransactionsOptions, GetTransactionsResult, RangeFilter,
-    RpcClient, RpcClientBuilder,
+    GetTransactionsFilters, GetTransactionsOptions, GetTransactionsResult, RangeFilter, RpcClient,
+    RpcClientBuilder,
 };
 
 #[cfg(feature = "ws")]

@@ -40,10 +40,7 @@ impl Error {
     pub fn is_retryable(&self) -> bool {
         match self {
             Error::Transport(_) | Error::Timeout | Error::RateLimited { .. } => true,
-            Error::Rpc { code, .. } => matches!(
-                code,
-                -32005 | -32007 | -32014 | -32015 | -32016
-            ),
+            Error::Rpc { code, .. } => matches!(code, -32005 | -32007 | -32014 | -32015 | -32016),
             Error::Stream(_) => true,
             _ => false,
         }
@@ -63,9 +60,7 @@ impl Error {
     pub fn with_endpoint(self, endpoint: &str) -> Self {
         let endpoint = sanitize_url(endpoint);
         match self {
-            Error::Transport(e) => Error::Transport(
-                format!("[{endpoint}] {e}").into(),
-            ),
+            Error::Transport(e) => Error::Transport(format!("[{endpoint}] {e}").into()),
             Error::Rpc { code, message } => Error::Rpc {
                 code,
                 message: format!("[{endpoint}] {message}"),

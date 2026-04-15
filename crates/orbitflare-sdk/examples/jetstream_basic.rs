@@ -1,5 +1,5 @@
-use orbitflare_sdk::{JetstreamClientBuilder, Result};
 use orbitflare_sdk::proto::jetstream::subscribe_update::UpdateOneof;
+use orbitflare_sdk::{JetstreamClientBuilder, Result};
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -9,8 +9,8 @@ async fn main() -> Result<()> {
         .url("http://ny.jetstream.orbitflare.com")
         .build()?;
 
-    let config_path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
-        .join("examples/config/jetstream.yml");
+    let config_path =
+        std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("examples/config/jetstream.yml");
     let mut stream = client.subscribe_yaml(config_path.to_str().unwrap())?;
 
     while let Some(update) = stream.next().await {
