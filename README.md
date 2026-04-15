@@ -30,9 +30,9 @@ Or in your `Cargo.toml`:
 
 ```toml
 [dependencies]
-orbitflare-sdk = "0.1.1"                                          # RPC only (default)
-orbitflare-sdk = { version = "0.1.1", features = ["grpc"] }       # gRPC
-orbitflare-sdk = { version = "0.1.1", features = ["all"] }        # Everything
+orbitflare-sdk = "0.1.2"                                          # RPC only (default)
+orbitflare-sdk = { version = "0.1.2", features = ["grpc"] }       # gRPC
+orbitflare-sdk = { version = "0.1.2", features = ["all"] }        # Everything
 ```
 
 ## RPC
@@ -78,6 +78,7 @@ async fn main() -> Result<()> {
 | `send_transaction(tx_base64)` | Signature string |
 | `simulate_transaction(tx_base64)` | Simulation result |
 | `get_token_accounts_by_owner(owner, mint, program)` | Token accounts |
+| `get_transactions_for_address(address, options)` | Full transaction history with filters and pagination (OrbitFlare-specific) |
 | `request(method, params)` | Any RPC method by name |
 | `request_raw(body)` | Raw JSON-RPC body string |
 

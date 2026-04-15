@@ -1,6 +1,6 @@
 [package]
 name = "orbitflare-sdk"
-version = "0.1.1"
+version = "0.1.2"
 edition = "2024"
 rust-version = "1.85"
 description = "Rust SDK for OrbitFlare - RPC, gRPC (Yellowstone), JetStream, and WebSocket clients for Solana"

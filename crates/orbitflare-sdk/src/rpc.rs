@@ -215,6 +215,23 @@ impl RpcClient {
             .ok_or_else(|| Error::Serialization("expected array".into()))
     }
 
+    pub async fn get_transactions_for_address(
+        &self,
+        address: &str,
+        options: GetTransactionsOptions,
+    ) -> Result<GetTransactionsResult> {
+        let result = self
+            .request(
+                "getTransactionsForAddress",
+                json!([address, options]),
+            )
+            .await?;
+        Ok(GetTransactionsResult {
+            data: result["data"].as_array().cloned().unwrap_or_default(),
+            pagination_token: result["paginationToken"].as_str().map(|s| s.to_string()),
+        })
+    }
+
 
     async fn execute(&self, body: &Value, method: &str) -> Result<Value> {
         let mut last_err = None;
@@ -436,6 +453,126 @@ impl RpcClientBuilder {
             commitment: self.commitment,
             retry: self.retry,
         })
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct GetTransactionsResult {
+    pub data: Vec<Value>,
+    pub pagination_token: Option<String>,
+}
+
+#[derive(Debug, Clone, Default, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct GetTransactionsOptions {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub transaction_details: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub limit: Option<u32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub sort_order: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub pagination_token: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub commitment: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub encoding: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub max_supported_transaction_version: Option<u32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub min_context_slot: Option<u64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub filters: Option<GetTransactionsFilters>,
+}
+
+#[derive(Debug, Clone, Default, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct GetTransactionsFilters {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub token_accounts: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub block_time: Option<RangeFilter<i64>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub slot: Option<RangeFilter<u64>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub signature: Option<RangeFilter<String>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub status: Option<String>,
+}
+
+#[derive(Debug, Clone, Default, serde::Serialize)]
+pub struct RangeFilter<T> {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub gte: Option<T>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub gt: Option<T>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub lte: Option<T>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub lt: Option<T>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub eq: Option<T>,
+}
+
+impl GetTransactionsOptions {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    pub fn transaction_details(mut self, v: &str) -> Self {
+        self.transaction_details = Some(v.to_string());
+        self
+    }
+
+    pub fn limit(mut self, v: u32) -> Self {
+        self.limit = Some(v);
+        self
+    }
+
+    pub fn sort_order(mut self, v: &str) -> Self {
+        self.sort_order = Some(v.to_string());
+        self
+    }
+
+    pub fn pagination_token(mut self, v: &str) -> Self {
+        self.pagination_token = Some(v.to_string());
+        self
+    }
+
+    pub fn commitment(mut self, v: &str) -> Self {
+        self.commitment = Some(v.to_string());
+        self
+    }
+
+    pub fn filters(mut self, f: GetTransactionsFilters) -> Self {
+        self.filters = Some(f);
+        self
+    }
+}
+
+impl GetTransactionsFilters {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    pub fn token_accounts(mut self, v: &str) -> Self {
+        self.token_accounts = Some(v.to_string());
+        self
+    }
+
+    pub fn block_time(mut self, range: RangeFilter<i64>) -> Self {
+        self.block_time = Some(range);
+        self
+    }
+
+    pub fn slot(mut self, range: RangeFilter<u64>) -> Self {
+        self.slot = Some(range);
+        self
+    }
+
+    pub fn status(mut self, v: &str) -> Self {
+        self.status = Some(v.to_string());
+        self
     }
 }
 

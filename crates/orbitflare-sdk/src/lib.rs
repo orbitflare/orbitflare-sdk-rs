@@ -23,7 +23,10 @@ pub use error::{Error, Result};
 pub use retry::RetryPolicy;
 
 #[cfg(feature = "rpc")]
-pub use rpc::{RpcClient, RpcClientBuilder};
+pub use rpc::{
+    GetTransactionsFilters, GetTransactionsOptions, GetTransactionsResult, RangeFilter,
+    RpcClient, RpcClientBuilder,
+};
 
 #[cfg(feature = "ws")]
 pub use ws::{WsClient, WsClientBuilder, WsSubscription};

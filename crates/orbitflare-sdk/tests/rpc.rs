@@ -1,4 +1,6 @@
-use orbitflare_sdk::{RpcClientBuilder, RetryPolicy};
+use orbitflare_sdk::{
+    GetTransactionsFilters, GetTransactionsOptions, RangeFilter, RetryPolicy, RpcClientBuilder,
+};
 use serde_json::json;
 use std::sync::atomic::{AtomicU32, Ordering};
 use std::sync::Arc;
@@ -150,6 +152,170 @@ async fn get_token_accounts_by_owner_returns_array() {
     })).await;
     let tokens = client.get_token_accounts_by_owner("owner", None, None).await.unwrap();
     assert_eq!(tokens.len(), 1);
+}
+
+#[tokio::test]
+async fn get_transactions_for_address_basic() {
+    let (_, client) = mock_rpc(json!({
+        "jsonrpc":"2.0",
+        "result":{
+            "data":[{"signature":"aaa","slot":1},{"signature":"bbb","slot":2}],
+        },
+        "id":1
+    })).await;
+
+    let result = client
+        .get_transactions_for_address("addr", GetTransactionsOptions::new())
+        .await
+        .unwrap();
+
+    assert_eq!(result.data.len(), 2);
+    assert_eq!(result.data[0]["signature"], "aaa");
+    assert!(result.pagination_token.is_none());
+}
+
+#[tokio::test]
+async fn get_transactions_for_address_with_pagination_token() {
+    let (_, client) = mock_rpc(json!({
+        "jsonrpc":"2.0",
+        "result":{
+            "data":[{"signature":"aaa","slot":1}],
+            "paginationToken":"387936002:541"
+        },
+        "id":1
+    })).await;
+
+    let result = client
+        .get_transactions_for_address("addr", GetTransactionsOptions::new().limit(1))
+        .await
+        .unwrap();
+
+    assert_eq!(result.data.len(), 1);
+    assert_eq!(result.pagination_token, Some("387936002:541".into()));
+}
+
+#[tokio::test]
+async fn get_transactions_for_address_sends_all_options() {
+    let server = MockServer::start().await;
+    Mock::given(method("POST"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+            "jsonrpc":"2.0",
+            "result":{"data":[]},
+            "id":1
+        })))
+        .mount(&server)
+        .await;
+
+    let client = RpcClientBuilder::new()
+        .url(&server.uri())
+        .build()
+        .unwrap();
+
+    let options = GetTransactionsOptions::new()
+        .transaction_details("full")
+        .limit(50)
+        .sort_order("asc")
+        .pagination_token("100:5")
+        .commitment("finalized")
+        .filters(
+            GetTransactionsFilters::new()
+                .token_accounts("all")
+                .status("succeeded")
+                .block_time(RangeFilter {
+                    gte: Some(1704067200),
+                    lte: Some(1706745600),
+                    ..Default::default()
+                }),
+        );
+
+    client
+        .get_transactions_for_address("addr", options)
+        .await
+        .unwrap();
+
+    let requests = server.received_requests().await.unwrap();
+    let body: serde_json::Value = serde_json::from_slice(&requests[0].body).unwrap();
+    let params = &body["params"][1];
+
+    assert_eq!(params["transactionDetails"], "full");
+    assert_eq!(params["limit"], 50);
+    assert_eq!(params["sortOrder"], "asc");
+    assert_eq!(params["paginationToken"], "100:5");
+    assert_eq!(params["commitment"], "finalized");
+    assert_eq!(params["filters"]["tokenAccounts"], "all");
+    assert_eq!(params["filters"]["status"], "succeeded");
+    assert_eq!(params["filters"]["blockTime"]["gte"], 1704067200);
+    assert_eq!(params["filters"]["blockTime"]["lte"], 1706745600);
+}
+
+#[tokio::test]
+async fn get_transactions_for_address_slot_filter() {
+    let server = MockServer::start().await;
+    Mock::given(method("POST"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+            "jsonrpc":"2.0",
+            "result":{"data":[]},
+            "id":1
+        })))
+        .mount(&server)
+        .await;
+
+    let client = RpcClientBuilder::new()
+        .url(&server.uri())
+        .build()
+        .unwrap();
+
+    let options = GetTransactionsOptions::new().filters(
+        GetTransactionsFilters::new().slot(RangeFilter {
+            gt: Some(300_000_000u64),
+            lt: Some(400_000_000u64),
+            ..Default::default()
+        }),
+    );
+
+    client
+        .get_transactions_for_address("addr", options)
+        .await
+        .unwrap();
+
+    let requests = server.received_requests().await.unwrap();
+    let body: serde_json::Value = serde_json::from_slice(&requests[0].body).unwrap();
+    let slot = &body["params"][1]["filters"]["slot"];
+    assert_eq!(slot["gt"], 300_000_000u64);
+    assert_eq!(slot["lt"], 400_000_000u64);
+    assert!(slot.get("gte").is_none());
+    assert!(slot.get("lte").is_none());
+}
+
+#[tokio::test]
+async fn get_transactions_for_address_omits_unset_options() {
+    let server = MockServer::start().await;
+    Mock::given(method("POST"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+            "jsonrpc":"2.0",
+            "result":{"data":[]},
+            "id":1
+        })))
+        .mount(&server)
+        .await;
+
+    let client = RpcClientBuilder::new()
+        .url(&server.uri())
+        .build()
+        .unwrap();
+
+    client
+        .get_transactions_for_address("addr", GetTransactionsOptions::new())
+        .await
+        .unwrap();
+
+    let requests = server.received_requests().await.unwrap();
+    let body: serde_json::Value = serde_json::from_slice(&requests[0].body).unwrap();
+    let params = &body["params"][1];
+
+    assert!(params.get("transactionDetails").is_none());
+    assert!(params.get("limit").is_none());
+    assert!(params.get("filters").is_none());
 }
 
 #[tokio::test]
