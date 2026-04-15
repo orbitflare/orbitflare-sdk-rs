@@ -1,0 +1,45 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  publish:
+    name: Publish to crates.io
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install protoc
+        uses: arduino/setup-protoc@v3
+        with:
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Cache cargo
+        uses: Swatinem/rust-cache@v2
+
+      - name: Verify tag matches Cargo.toml version
+        run: |
+          TAG_VERSION="${GITHUB_REF#refs/tags/v}"
+          CRATE_VERSION=$(grep '^version' crates/orbitflare-sdk/Cargo.toml | head -1 | sed 's/.*"\(.*\)"/\1/')
+          if [ "$TAG_VERSION" != "$CRATE_VERSION" ]; then
+            echo "Tag version ($TAG_VERSION) does not match Cargo.toml version ($CRATE_VERSION)"
+            exit 1
+          fi
+
+      - name: Publish orbitflare-sdk-proto
+        run: cargo publish -p orbitflare-sdk-proto --token ${{ secrets.CARGO_REGISTRY_TOKEN }} || echo "proto already published"
+
+      - name: Wait for proto to be available on crates.io
+        run: sleep 60
+
+      - name: Publish orbitflare-sdk
+        run: cargo publish -p orbitflare-sdk --token ${{ secrets.CARGO_REGISTRY_TOKEN }}
