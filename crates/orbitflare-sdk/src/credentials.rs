@@ -2,8 +2,19 @@ pub(crate) fn apply_api_key(url: &str, api_key: &str) -> String {
     if api_key.is_empty() || url.contains("api_key=") {
         return url.to_string();
     }
-    let sep = if url.contains('?') { "&" } else { "?" };
-    format!("{url}{sep}api_key={api_key}")
+    let (base, sep) = if url.contains('?') {
+        (url.to_string(), "&")
+    } else if has_path(url) {
+        (url.to_string(), "?")
+    } else {
+        (format!("{url}/"), "?")
+    };
+    format!("{base}{sep}api_key={api_key}")
+}
+
+fn has_path(url: &str) -> bool {
+    let after_scheme = url.split_once("://").map(|(_, rest)| rest).unwrap_or(url);
+    after_scheme.contains('/')
 }
 
 #[cfg(test)]
@@ -13,7 +24,13 @@ mod tests {
     #[test]
     fn appends_key() {
         let url = apply_api_key("http://fra.rpc.orbitflare.com", "ORBIT-123");
-        assert_eq!(url, "http://fra.rpc.orbitflare.com?api_key=ORBIT-123");
+        assert_eq!(url, "http://fra.rpc.orbitflare.com/?api_key=ORBIT-123");
+    }
+
+    #[test]
+    fn keeps_existing_path() {
+        let url = apply_api_key("http://fra.rpc.orbitflare.com/v1", "ORBIT-123");
+        assert_eq!(url, "http://fra.rpc.orbitflare.com/v1?api_key=ORBIT-123");
     }
 
     #[test]

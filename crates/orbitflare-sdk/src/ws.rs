@@ -536,7 +536,14 @@ async fn handle_text(
             if let Some(&idx) = sub_id_to_idx.get(&sub_id) {
                 if let Some(sub) = subs.get(idx) {
                     if let Some(result) = params.get("result") {
-                        if sub.event_tx.send(result.clone()).await.is_err() {
+                        let payload = if result.get("context").is_some()
+                            && result.get("value").is_some()
+                        {
+                            result["value"].clone()
+                        } else {
+                            result.clone()
+                        };
+                        if sub.event_tx.send(payload).await.is_err() {
                             auto_unsubscribe(sub_id, &parsed, write).await;
                         }
                     }
