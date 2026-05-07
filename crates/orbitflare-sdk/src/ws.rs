@@ -445,7 +445,7 @@ async fn run_connection(
                     Some(WsCommand::Unsubscribe { sub_id, method }) => {
                         if let Some(idx) = sub_id_to_idx.remove(&sub_id) {
                             subs.remove(idx);
-                            rebuild_index(subs, &mut sub_id_to_idx);
+                            rebuild_index(idx, &mut sub_id_to_idx);
                         }
                         let id = next_id;
                         next_id += 1;
@@ -569,11 +569,10 @@ async fn auto_unsubscribe(sub_id: u64, parsed: &Value, write: &mut WsWrite) {
     }
 }
 
-fn rebuild_index(subs: &[ActiveSub], sub_id_to_idx: &mut HashMap<u64, usize>) {
-    let old: Vec<(u64, usize)> = sub_id_to_idx.drain().collect();
-    for (sub_id, old_idx) in old {
-        if old_idx < subs.len() {
-            sub_id_to_idx.insert(sub_id, old_idx);
+fn rebuild_index(removed_idx: usize, sub_id_to_idx: &mut HashMap<u64, usize>) {
+    for idx in sub_id_to_idx.values_mut() {
+        if *idx > removed_idx {
+            *idx -= 1;
         }
     }
 }
