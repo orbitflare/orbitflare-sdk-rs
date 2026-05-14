@@ -1,6 +1,7 @@
 use reqwest::Client;
 use serde_json::{Value, json};
 use std::time::Duration;
+use tracing::Instrument;
 
 use crate::endpoint::EndpointSet;
 use crate::error::{Error, Result, SanitizedUrl};
@@ -237,15 +238,14 @@ impl RpcClient {
 
             loop {
                 attempt += 1;
-                let _span = tracing::debug_span!(
+                let span = tracing::debug_span!(
                     "rpc",
                     method,
                     endpoint = %SanitizedUrl(&url),
                     attempt,
-                )
-                .entered();
+                );
 
-                match self.post(&url, body).await {
+                match self.post(&url, body).instrument(span).await {
                     Ok(result) => {
                         self.endpoints.mark_success(idx);
                         return Ok(result);

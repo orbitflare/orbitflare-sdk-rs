@@ -88,11 +88,18 @@ async fn stream_task(
 
         tracing::info!(endpoint = %SanitizedUrl(&url), attempt, "connecting");
 
-        match connect_and_stream(&url, &inner, &request, &tx, &mut shutdown_rx).await {
-            Ok(()) => {
-                inner.endpoints.mark_success(idx);
-                return;
-            }
+        match connect_and_stream(
+            &url,
+            idx,
+            &mut attempt,
+            &inner,
+            &request,
+            &tx,
+            &mut shutdown_rx,
+        )
+        .await
+        {
+            Ok(()) => return,
             Err(e) => {
                 inner.endpoints.mark_failure(idx);
 
@@ -122,6 +129,8 @@ async fn stream_task(
 
 async fn connect_and_stream(
     url: &str,
+    idx: usize,
+    attempt: &mut u32,
     inner: &JetstreamClientInner,
     request: &SubscribeRequest,
     tx: &mpsc::Sender<Result<SubscribeUpdate>>,
@@ -149,6 +158,9 @@ async fn connect_and_stream(
     let response: tonic::Response<tonic::Streaming<SubscribeUpdate>> =
         client.subscribe(outbound_stream).await?;
     let mut inbound = response.into_inner();
+
+    inner.endpoints.mark_success(idx);
+    *attempt = 0;
 
     tracing::info!("connected, streaming");
 
