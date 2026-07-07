@@ -14,6 +14,12 @@ pub mod ws;
 pub mod config;
 
 #[cfg(feature = "grpc")]
+pub(crate) mod filters;
+
+#[cfg(any(feature = "grpc", feature = "jetstream"))]
+pub(crate) mod streaming;
+
+#[cfg(feature = "grpc")]
 pub mod grpc;
 
 #[cfg(feature = "jetstream")]

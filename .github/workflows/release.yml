@@ -29,17 +29,11 @@ jobs:
       - name: Verify tag matches Cargo.toml version
         run: |
           TAG_VERSION="${GITHUB_REF#refs/tags/v}"
-          CRATE_VERSION=$(grep '^version' crates/orbitflare-sdk/Cargo.toml | head -1 | sed 's/.*"\(.*\)"/\1/')
+          CRATE_VERSION=$(grep '^version' Cargo.toml | head -1 | sed 's/.*"\(.*\)"/\1/')
           if [ "$TAG_VERSION" != "$CRATE_VERSION" ]; then
             echo "Tag version ($TAG_VERSION) does not match Cargo.toml version ($CRATE_VERSION)"
             exit 1
           fi
 
-      - name: Publish orbitflare-sdk-proto
-        run: cargo publish -p orbitflare-sdk-proto --token ${{ secrets.CARGO_REGISTRY_TOKEN }} || echo "proto already published"
-
-      - name: Wait for proto to be available on crates.io
-        run: sleep 60
-
       - name: Publish orbitflare-sdk
-        run: cargo publish -p orbitflare-sdk --token ${{ secrets.CARGO_REGISTRY_TOKEN }}
+        run: cargo publish --token ${{ secrets.CARGO_REGISTRY_TOKEN }}

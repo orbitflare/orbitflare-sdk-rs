@@ -30,9 +30,9 @@ Or in your `Cargo.toml`:
 
 ```toml
 [dependencies]
-orbitflare-sdk = "0.1.2"                                          # RPC only (default)
-orbitflare-sdk = { version = "0.1.2", features = ["grpc"] }       # gRPC
-orbitflare-sdk = { version = "0.1.2", features = ["all"] }        # Everything
+orbitflare-sdk = "0.3.0"                                          # RPC only (default)
+orbitflare-sdk = { version = "0.3.0", features = ["grpc"] }       # gRPC
+orbitflare-sdk = { version = "0.3.0", features = ["all"] }        # Everything
 ```
 
 ## RPC
@@ -121,7 +121,43 @@ async fn main() -> Result<()> {
 }
 ```
 
-The YAML format supports `${ENV_VAR}` expansion. You can also use `client.subscribe(request)` with a raw proto `SubscribeRequest` for programmatic construction.
+The YAML format supports `${ENV_VAR}` expansion.
+
+### Typed filters
+
+Build the request programmatically with the typed builder instead of YAML:
+
+```rust
+use orbitflare_sdk::grpc::{
+    AccountFilter, Commitment, Lamports, Memcmp, SlotFilter, SubscribeRequestBuilder,
+    TransactionFilter,
+};
+
+let request = SubscribeRequestBuilder::new()
+    .transactions(
+        "pumpfun",
+        TransactionFilter::new()
+            .vote(false)
+            .failed(false)
+            .account_include(["6EF8rrecthR5Dkzon8Nwu78hRvfCKubJ14M5uBEwF6P"])
+            .account_required(["So11111111111111111111111111111111111111112"]),
+    )
+    .accounts(
+        "wsol-token-accounts",
+        AccountFilter::new()
+            .owner(["TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"])
+            .datasize(165)
+            .memcmp(Memcmp::base58(0, "So11111111111111111111111111111111111111112"))
+            .lamports(Lamports::Gt(0)),
+    )
+    .slots("slots", SlotFilter::new().filter_by_commitment(true))
+    .commitment(Commitment::Confirmed)
+    .build();
+
+let mut stream = client.subscribe(request);
+```
+
+`client.subscribe(request)` also accepts a raw proto `SubscribeRequest` if you'd rather construct it by hand.
 
 ## JetStream
 
@@ -153,6 +189,85 @@ async fn main() -> Result<()> {
     }
 
     Ok(())
+}
+```
+
+Or build the request with the typed builder:
+
+```rust
+use orbitflare_sdk::jetstream::{SubscribeRequestBuilder, TransactionFilter};
+
+let request = SubscribeRequestBuilder::new()
+    .transactions(
+        "pumpfun",
+        TransactionFilter::new()
+            .account_include(["6EF8rrecthR5Dkzon8Nwu78hRvfCKubJ14M5uBEwF6P"])
+            .account_required(["So11111111111111111111111111111111111111112"]),
+    )
+    .build();
+
+let mut stream = client.subscribe(request);
+```
+
+### JetStream v2
+
+v2 (`jetstream::v2`) runs on the same endpoint and auth as v1 and is fully additive. Filters are managed at runtime over a bidirectional stream (no reconnect to change them), every response carries a monotonic `sequence` for gap detection, slot lifecycle events are a separate stream, and transactions can opt into enrichment (fee payer, program ids, compute-unit price, loaded address-table addresses, and more).
+
+```rust
+use orbitflare_sdk::jetstream::v2::{JetstreamClientBuilder, TransactionFilter};
+use orbitflare_sdk::proto::jetstream::v2::subscribe_transactions_response::Payload;
+use orbitflare_sdk::Result;
+
+#[tokio::main]
+async fn main() -> Result<()> {
+    let client = JetstreamClientBuilder::new()
+        .url("http://ny.jetstream.orbitflare.com")
+        .build()?;
+
+    println!("version={}", client.get_version().await?);
+
+    let filter = TransactionFilter::new()
+        .account_include(["6EF8rrecthR5Dkzon8Nwu78hRvfCKubJ14M5uBEwF6P"])
+        .include_enrichment(true)
+        .with_id("pumpfun");
+
+    let mut stream = client.subscribe_transactions(vec![filter]);
+
+    while let Some(resp) = stream.next().await {
+        match resp?.payload {
+            Some(Payload::Transaction(ft)) => {
+                if let Some(tx) = &ft.transaction {
+                    println!("slot={} cu_price={}", tx.slot, tx.compute_unit_price);
+                }
+            }
+            Some(Payload::FilterValidation(r)) => {
+                println!("filter {} accepted={}", r.filter_id, r.accepted);
+            }
+            _ => {}
+        }
+    }
+
+    Ok(())
+}
+```
+
+Add or remove filters on a live stream without reconnecting:
+
+```rust
+let handle = stream.handle();
+handle.add_filters(vec![
+    TransactionFilter::new().account_include(["..."]).with_id("raydium"),
+])?;
+handle.remove_filters(vec!["pumpfun".to_string()])?;
+```
+
+Slot lifecycle events are a separate server stream:
+
+```rust
+let mut slots = client.subscribe_slots();
+while let Some(event) = slots.next().await {
+    let event = event?;
+    println!("slot={} status={:?}", event.slot, event.status());
 }
 ```
 

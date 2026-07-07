@@ -19,8 +19,6 @@ pub struct GeyserStreamConfig {
 pub struct JetstreamStreamConfig {
     #[serde(default)]
     pub transactions: HashMap<String, TransactionFilter>,
-    #[serde(default)]
-    pub accounts: HashMap<String, AccountFilter>,
 }
 
 #[derive(Deserialize)]
@@ -158,24 +156,9 @@ impl JetstreamStreamConfig {
             })
             .collect();
 
-        let accounts = self
-            .accounts
-            .iter()
-            .map(|(name, f)| {
-                (
-                    name.clone(),
-                    SubscribeRequestFilterAccounts {
-                        account: f.account.clone(),
-                        owner: f.owner.clone(),
-                        filters: vec![],
-                    },
-                )
-            })
-            .collect();
-
         SubscribeRequest {
             transactions,
-            accounts,
+            accounts: HashMap::new(),
             ping: Some(SubscribeRequestPing { id: 1 }),
         }
     }
