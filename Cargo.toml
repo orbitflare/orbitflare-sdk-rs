@@ -32,7 +32,7 @@ serde_json = { version = "1.0.149", optional = true }
 tokio-tungstenite = { version = "0.29.0", features = ["native-tls"], optional = true }
 futures-util = { version = "0.3.32", default-features = false, features = ["sink"], optional = true }
 
-orbitflare-sdk-proto = { version = "0.1.1", path = "../orbitflare-sdk-proto", optional = true }
+orbitflare-sdk-proto = { version = "0.1.1", optional = true }
 tonic = { version = "0.14.5", optional = true }
 tonic-prost = { version = "0.14.5", optional = true }
 tokio-stream = { version = "0.1.18", optional = true }

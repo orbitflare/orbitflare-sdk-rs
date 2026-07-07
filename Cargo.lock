@@ -1153,6 +1153,8 @@ dependencies = [
 [[package]]
 name = "orbitflare-sdk-proto"
 version = "0.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "23c1e45a2dc3cf6cb1db82767eb34c8da497086bccb08511d4e3e056e97904e4"
 dependencies = [
  "prost",
  "prost-types",
