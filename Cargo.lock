@@ -1129,7 +1129,7 @@ checksum = "04744f49eae99ab78e0d5c0b603ab218f515ea8cfe5a456d7629ad883a3b6e7d"
 
 [[package]]
 name = "orbitflare-sdk"
-version = "0.3.0"
+version = "0.3.1"
 dependencies = [
  "bs58",
  "futures-util",
@@ -1152,9 +1152,9 @@ dependencies = [
 
 [[package]]
 name = "orbitflare-sdk-proto"
-version = "0.1.1"
+version = "0.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "23c1e45a2dc3cf6cb1db82767eb34c8da497086bccb08511d4e3e056e97904e4"
+checksum = "fd3281cd0324be2e5adb5e1d802ad5d00f54e3fcb8ecce20b4dcd19dd4bb19dc"
 dependencies = [
  "prost",
  "prost-types",

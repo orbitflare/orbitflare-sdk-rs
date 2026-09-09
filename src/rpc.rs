@@ -120,7 +120,7 @@ impl RpcClient {
             json!([signature, {
                 "encoding": "json",
                 "commitment": self.commitment,
-                "maxSupportedTransactionVersion": 0
+                "maxSupportedTransactionVersion": 1
             }]),
         )
         .await
