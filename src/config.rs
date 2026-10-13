@@ -131,7 +131,9 @@ impl GeyserStreamConfig {
             entry: HashMap::new(),
             commitment: Some(parse_commitment(&self.commitment)),
             accounts_data_slice: vec![],
-            ping: Some(SubscribeRequestPing { id: 1 }),
+            // No ping here: vanilla Yellowstone answers a request that carries a ping with a pong
+            // and ignores its filters, so the subscription would never start.
+            ping: None,
             from_slot: None,
         }
     }

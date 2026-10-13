@@ -473,7 +473,9 @@ impl SubscribeRequestBuilder {
             entry,
             commitment: self.commitment.map(Commitment::as_i32),
             accounts_data_slice,
-            ping: Some(pb::SubscribeRequestPing { id: 1 }),
+            // No ping here: vanilla Yellowstone answers a request that carries a ping with a pong
+            // and ignores its filters, so the subscription would never start.
+            ping: None,
             from_slot: self.from_slot,
         }
     }
