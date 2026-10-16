@@ -3,7 +3,7 @@ name = "orbitflare-sdk"
 version = "0.3.2"
 edition = "2024"
 rust-version = "1.85"
-description = "Rust SDK for OrbitFlare - RPC, gRPC (Yellowstone), JetStream, and WebSocket clients for Solana"
+description = "Rust SDK for OrbitFlare - RPC, DAS, gRPC (Yellowstone), JetStream, and WebSocket clients for Solana"
 authors = ["OrbitFlare"]
 license = "MIT"
 repository = "https://github.com/orbitflare/orbitflare-sdk-rs"
@@ -52,6 +52,10 @@ required-features = ["rpc"]
 
 [[example]]
 name = "rpc_full"
+required-features = ["rpc"]
+
+[[example]]
+name = "das"
 required-features = ["rpc"]
 
 [[example]]

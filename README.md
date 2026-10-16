@@ -82,6 +82,63 @@ async fn main() -> Result<()> {
 | `request(method, params)` | Any RPC method by name |
 | `request_raw(body)` | Raw JSON-RPC body string |
 
+## DAS API
+
+The Digital Asset Standard methods read NFTs, compressed NFTs, MPL Core assets and SPL tokens. They are on `RpcClient` and use the same endpoint, with typed requests and responses in `orbitflare_sdk::das`.
+
+```rust
+use orbitflare_sdk::das::{DisplayOptions, GetAssetsByGroup, GetAssetsByOwner, SearchAssets, TokenType};
+use orbitflare_sdk::{RpcClientBuilder, Result};
+
+#[tokio::main]
+async fn main() -> Result<()> {
+    let client = RpcClientBuilder::new()
+        .url("https://fra.rpc.orbitflare.com")
+        .build()?;
+
+    let asset = client.get_asset("GJfYbfW7gufzFYfm8gFatrUE71wYsjay6FwzDkTa3vaD").await?;
+    println!("{:?} owned by {:?}", asset.name(), asset.owner());
+
+    let portfolio = client
+        .get_assets_by_owner(
+            &GetAssetsByOwner::new("86xCnPeV69n6t3DnyGvkKobf9FdN2H9oiVDdaMpo2MMY")
+                .options(DisplayOptions::new().show_fungible(true).show_native_balance(true)),
+        )
+        .await?;
+
+    let tokens = client
+        .search_assets(&SearchAssets::new().owner("86xCnPeV69n6t3DnyGvkKobf9FdN2H9oiVDdaMpo2MMY").token_type(TokenType::Fungible))
+        .await?;
+
+    // Every asset in a collection, page by page.
+    let all = client
+        .pages(GetAssetsByGroup::collection("CDDyz6MHYY8972DPCXiEeReCxGqJSCbxHnimrvoyWrFF"))
+        .collect_items()
+        .await?;
+
+    Ok(())
+}
+```
+
+| Method | Returns |
+|---|---|
+| `get_asset(id)` | `Asset` |
+| `get_asset_batch(ids)` | `Vec<Option<Asset>>` in request order (auto-chunks to 1,000) |
+| `get_asset_proof(id)` | `AssetProof` for a compressed asset |
+| `get_asset_proof_batch(ids)` | Proofs keyed by asset ID (auto-chunks to 1,000) |
+| `get_asset_with_proof(id)` | Asset and proof in one call, for Bubblegum instructions |
+| `get_assets_by_owner(req)` | `AssetList`, with `native_balance` when asked |
+| `get_assets_by_group(req)` | `AssetList` |
+| `get_assets_by_creator(req)` | `AssetList` |
+| `get_assets_by_authority(req)` | `AssetList` |
+| `search_assets(req)` | `AssetList` |
+| `get_token_accounts(req)` | `TokenAccountList`, by owner, mint or both |
+| `get_nft_editions(req)` | `NftEditions` of a master edition |
+| `get_signatures_for_asset(req)` | `AssetSignatures` (signature and instruction pairs) |
+| `pages(req)` | Walks every page of a list request, by cursor or page number |
+
+`get_asset`, `get_asset_batch` and `get_asset_with_proof` have `_with_options` variants that take `DisplayOptions`. Requests take `.page()`, `.limit()`, `.cursor()`, `.before()`, `.after()` and `.sort_by()`; use one paging style per request.
+
 ## gRPC (Yellowstone Geyser)
 
 Subscribe using a YAML config file:

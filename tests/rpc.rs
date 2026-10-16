@@ -28,21 +28,22 @@ async fn mock_rpc(body: serde_json::Value) -> (MockServer, orbitflare_sdk::rpc::
 
 #[tokio::test]
 async fn get_slot_returns_u64() {
-    let (_, client) = mock_rpc(json!({"jsonrpc":"2.0","result":12345,"id":1})).await;
+    let (_server, client) = mock_rpc(json!({"jsonrpc":"2.0","result":12345,"id":1})).await;
     let slot = client.get_slot().await.unwrap();
     assert_eq!(slot, 12345);
 }
 
 #[tokio::test]
 async fn get_balance_returns_lamports() {
-    let (_, client) = mock_rpc(json!({"jsonrpc":"2.0","result":{"value":999000000},"id":1})).await;
+    let (_server, client) =
+        mock_rpc(json!({"jsonrpc":"2.0","result":{"value":999000000},"id":1})).await;
     let balance = client.get_balance("addr").await.unwrap();
     assert_eq!(balance, 999000000);
 }
 
 #[tokio::test]
 async fn get_latest_blockhash_returns_tuple() {
-    let (_, client) = mock_rpc(json!({
+    let (_server, client) = mock_rpc(json!({
         "jsonrpc":"2.0",
         "result":{"value":{"blockhash":"abc123","lastValidBlockHeight":500}},
         "id":1
@@ -55,14 +56,14 @@ async fn get_latest_blockhash_returns_tuple() {
 
 #[tokio::test]
 async fn get_account_info_returns_none_for_missing() {
-    let (_, client) = mock_rpc(json!({"jsonrpc":"2.0","result":{"value":null},"id":1})).await;
+    let (_server, client) = mock_rpc(json!({"jsonrpc":"2.0","result":{"value":null},"id":1})).await;
     let acct = client.get_account_info("missing").await.unwrap();
     assert!(acct.is_none());
 }
 
 #[tokio::test]
 async fn get_account_info_returns_some() {
-    let (_, client) = mock_rpc(json!({
+    let (_server, client) = mock_rpc(json!({
         "jsonrpc":"2.0",
         "result":{"value":{"lamports":100,"owner":"11111","data":["","base64"],"executable":false}},
         "id":1
@@ -75,7 +76,7 @@ async fn get_account_info_returns_some() {
 
 #[tokio::test]
 async fn get_multiple_accounts_returns_vec() {
-    let (_, client) = mock_rpc(json!({
+    let (_server, client) = mock_rpc(json!({
         "jsonrpc":"2.0",
         "result":{"value":[{"lamports":10},null,{"lamports":30}]},
         "id":1
@@ -95,7 +96,7 @@ async fn get_multiple_accounts_returns_vec() {
 
 #[tokio::test]
 async fn get_transaction_returns_value() {
-    let (_, client) = mock_rpc(json!({
+    let (_server, client) = mock_rpc(json!({
         "jsonrpc":"2.0",
         "result":{"slot":100,"meta":{"fee":5000},"transaction":{}},
         "id":1
@@ -108,7 +109,7 @@ async fn get_transaction_returns_value() {
 
 #[tokio::test]
 async fn get_signatures_for_address_returns_array() {
-    let (_, client) = mock_rpc(json!({
+    let (_server, client) = mock_rpc(json!({
         "jsonrpc":"2.0",
         "result":[{"signature":"aaa","slot":1},{"signature":"bbb","slot":2}],
         "id":1
@@ -122,7 +123,7 @@ async fn get_signatures_for_address_returns_array() {
 
 #[tokio::test]
 async fn get_program_accounts_returns_array() {
-    let (_, client) = mock_rpc(json!({
+    let (_server, client) = mock_rpc(json!({
         "jsonrpc":"2.0",
         "result":[{"pubkey":"a","account":{"lamports":1}},{"pubkey":"b","account":{"lamports":2}}],
         "id":1
@@ -134,7 +135,7 @@ async fn get_program_accounts_returns_array() {
 
 #[tokio::test]
 async fn get_recent_prioritization_fees_returns_array() {
-    let (_, client) = mock_rpc(json!({
+    let (_server, client) = mock_rpc(json!({
         "jsonrpc":"2.0",
         "result":[{"slot":1,"prioritizationFee":100},{"slot":2,"prioritizationFee":200}],
         "id":1
@@ -150,7 +151,7 @@ async fn get_recent_prioritization_fees_returns_array() {
 
 #[tokio::test]
 async fn simulate_transaction_returns_value() {
-    let (_, client) = mock_rpc(json!({
+    let (_server, client) = mock_rpc(json!({
         "jsonrpc":"2.0",
         "result":{"value":{"err":null,"logs":["log1"],"unitsConsumed":5000}},
         "id":1
@@ -162,7 +163,7 @@ async fn simulate_transaction_returns_value() {
 
 #[tokio::test]
 async fn get_token_accounts_by_owner_returns_array() {
-    let (_, client) = mock_rpc(json!({
+    let (_server, client) = mock_rpc(json!({
         "jsonrpc":"2.0",
         "result":{"value":[{"pubkey":"tok1","account":{"data":{"parsed":{"info":{"mint":"m1"}}}}}]},
         "id":1
@@ -177,7 +178,7 @@ async fn get_token_accounts_by_owner_returns_array() {
 
 #[tokio::test]
 async fn get_transactions_for_address_basic() {
-    let (_, client) = mock_rpc(json!({
+    let (_server, client) = mock_rpc(json!({
         "jsonrpc":"2.0",
         "result":{
             "data":[{"signature":"aaa","slot":1},{"signature":"bbb","slot":2}],
@@ -198,7 +199,7 @@ async fn get_transactions_for_address_basic() {
 
 #[tokio::test]
 async fn get_transactions_for_address_with_pagination_token() {
-    let (_, client) = mock_rpc(json!({
+    let (_server, client) = mock_rpc(json!({
         "jsonrpc":"2.0",
         "result":{
             "data":[{"signature":"aaa","slot":1}],
@@ -333,14 +334,14 @@ async fn get_transactions_for_address_omits_unset_options() {
 
 #[tokio::test]
 async fn request_custom_method() {
-    let (_, client) = mock_rpc(json!({"jsonrpc":"2.0","result":{"epoch":100},"id":1})).await;
+    let (_server, client) = mock_rpc(json!({"jsonrpc":"2.0","result":{"epoch":100},"id":1})).await;
     let result = client.request("getEpochInfo", json!([])).await.unwrap();
     assert_eq!(result["epoch"], 100);
 }
 
 #[tokio::test]
 async fn request_raw_body() {
-    let (_, client) = mock_rpc(json!({"jsonrpc":"2.0","result":"ok","id":1})).await;
+    let (_server, client) = mock_rpc(json!({"jsonrpc":"2.0","result":"ok","id":1})).await;
     let result = client
         .request_raw(r#"{"jsonrpc":"2.0","id":1,"method":"getHealth","params":[]}"#)
         .await
@@ -350,7 +351,7 @@ async fn request_raw_body() {
 
 #[tokio::test]
 async fn send_transaction_returns_signature() {
-    let (_, client) = mock_rpc(json!({
+    let (_server, client) = mock_rpc(json!({
         "jsonrpc":"2.0",
         "result":"5K8F2jABCDEFtestsignature123456789",
         "id":1
@@ -382,7 +383,7 @@ async fn commitment_defaults_and_override() {
 
 #[tokio::test]
 async fn rpc_error_extracted() {
-    let (_, client) = mock_rpc(json!({
+    let (_server, client) = mock_rpc(json!({
         "jsonrpc":"2.0",
         "error":{"code":-32600,"message":"invalid request"},
         "id":1

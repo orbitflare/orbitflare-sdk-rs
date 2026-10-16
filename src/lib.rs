@@ -7,6 +7,9 @@ pub mod retry;
 #[cfg(feature = "rpc")]
 pub mod rpc;
 
+#[cfg(feature = "rpc")]
+pub mod das;
+
 #[cfg(feature = "ws")]
 pub mod ws;
 
