@@ -12,6 +12,9 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use tokio::sync::{mpsc, watch};
+use tonic::metadata::AsciiMetadataValue;
+use tonic::service::Interceptor;
+use tonic::service::interceptor::InterceptedService;
 use tonic::transport::Channel;
 
 use crate::endpoint::EndpointSet;
@@ -21,8 +24,26 @@ use crate::retry::RetryPolicy;
 pub(crate) const DEFAULT_PING_INTERVAL_SECS: u64 = 10;
 pub(crate) const DEFAULT_MAX_MISSED_PONGS: u32 = 3;
 
+pub(crate) type AuthChannel = InterceptedService<Channel, ApiKeyInterceptor>;
+
+#[derive(Clone)]
+pub(crate) struct ApiKeyInterceptor(Option<AsciiMetadataValue>);
+
+impl Interceptor for ApiKeyInterceptor {
+    fn call(
+        &mut self,
+        mut req: tonic::Request<()>,
+    ) -> std::result::Result<tonic::Request<()>, tonic::Status> {
+        if let Some(key) = &self.0 {
+            req.metadata_mut().insert("x-token", key.clone());
+        }
+        Ok(req)
+    }
+}
+
 pub(crate) struct StreamConfig {
     pub endpoints: EndpointSet,
+    pub api_key: Option<AsciiMetadataValue>,
     pub retry: RetryPolicy,
     pub timeout_secs: u64,
     pub keepalive_secs: u64,
@@ -32,22 +53,27 @@ pub(crate) struct StreamConfig {
 }
 
 impl StreamConfig {
-    pub async fn connect(&self, url: &str) -> Result<Channel> {
+    pub async fn connect(&self, url: &str) -> Result<AuthChannel> {
         let endpoint = Channel::from_shared(url.to_string())
             .map_err(|e| Error::Config(format!("invalid endpoint: {e}")))?;
-        endpoint
+        let channel = endpoint
             .timeout(Duration::from_secs(self.timeout_secs))
             .tcp_keepalive(Some(Duration::from_secs(self.keepalive_secs)))
             .connect_timeout(Duration::from_secs(self.timeout_secs))
             .connect()
             .await
-            .map_err(Error::transport)
+            .map_err(Error::transport)?;
+        Ok(InterceptedService::new(
+            channel,
+            ApiKeyInterceptor(self.api_key.clone()),
+        ))
     }
 }
 
 pub(crate) struct StreamConfigBuilder {
     url: Option<String>,
     fallbacks: Vec<String>,
+    api_key: Option<String>,
     retry: RetryPolicy,
     timeout_secs: u64,
     keepalive_secs: u64,
@@ -61,6 +87,7 @@ impl Default for StreamConfigBuilder {
         Self {
             url: None,
             fallbacks: Vec::new(),
+            api_key: None,
             retry: RetryPolicy::default(),
             timeout_secs: 30,
             keepalive_secs: 60,
@@ -89,6 +116,10 @@ impl StreamConfigBuilder {
 
     pub fn fallback_urls(&mut self, urls: &[&str]) {
         self.fallbacks.extend(urls.iter().map(|s| s.to_string()));
+    }
+
+    pub fn api_key(&mut self, key: &str) {
+        self.api_key = Some(key.to_string());
     }
 
     pub fn retry(&mut self, policy: RetryPolicy) {
@@ -125,8 +156,22 @@ impl StreamConfigBuilder {
                 ))
             })?;
 
+        let api_key = self
+            .api_key
+            .or_else(|| std::env::var("ORBITFLARE_LICENSE_KEY").ok())
+            .filter(|k| !k.is_empty())
+            .map(|k| {
+                k.parse::<AsciiMetadataValue>().map_err(|_| {
+                    Error::Config(
+                        "API key contains characters that cannot be sent as a header".into(),
+                    )
+                })
+            })
+            .transpose()?;
+
         Ok(StreamConfig {
             endpoints: EndpointSet::new(&url, &self.fallbacks),
+            api_key,
             retry: self.retry,
             timeout_secs: self.timeout_secs,
             keepalive_secs: self.keepalive_secs,
@@ -220,7 +265,7 @@ impl Reconnector {
 #[cfg(feature = "jetstream")]
 pub(crate) async fn unary_with_failover<F, Fut, T>(cfg: &StreamConfig, call: F) -> Result<T>
 where
-    F: Fn(Channel) -> Fut,
+    F: Fn(AuthChannel) -> Fut,
     Fut: std::future::Future<Output = Result<T>>,
 {
     let mut attempt = 0u32;
@@ -249,5 +294,24 @@ where
                 tokio::time::sleep(delay).await;
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn interceptor_sends_key_as_x_token() {
+        let mut interceptor = ApiKeyInterceptor(Some("ORBIT-123".parse().unwrap()));
+        let req = interceptor.call(tonic::Request::new(())).unwrap();
+        assert_eq!(req.metadata().get("x-token").unwrap(), "ORBIT-123");
+    }
+
+    #[test]
+    fn interceptor_without_key_sends_nothing() {
+        let mut interceptor = ApiKeyInterceptor(None);
+        let req = interceptor.call(tonic::Request::new(())).unwrap();
+        assert!(req.metadata().get("x-token").is_none());
     }
 }

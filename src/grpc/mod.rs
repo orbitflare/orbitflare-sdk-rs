@@ -182,6 +182,11 @@ impl GeyserClientBuilder {
         self
     }
 
+    pub fn api_key(mut self, key: &str) -> Self {
+        self.cfg.api_key(key);
+        self
+    }
+
     pub fn retry(mut self, policy: RetryPolicy) -> Self {
         self.cfg.retry(policy);
         self

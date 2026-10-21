@@ -63,3 +63,14 @@ async fn subscribe_yaml_valid_config_loads() {
 
     assert!(result.is_ok());
 }
+
+#[test]
+fn api_key_that_cannot_be_a_header_is_rejected() {
+    let err = GeyserClientBuilder::new()
+        .url("http://localhost:10000")
+        .api_key("ORBIT-123\n")
+        .build()
+        .err()
+        .expect("expected error");
+    assert!(matches!(err, orbitflare_sdk::Error::Config(_)));
+}
