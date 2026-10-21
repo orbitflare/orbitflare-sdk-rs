@@ -16,8 +16,8 @@ readme = "README.md"
 default = ["rpc"]
 rpc = ["dep:reqwest", "dep:serde_json"]
 ws = ["rpc", "dep:tokio-tungstenite", "dep:futures-util"]
-grpc = ["dep:orbitflare-sdk-proto", "dep:tonic", "dep:tonic-prost", "dep:tokio-stream", "dep:serde_yml", "dep:shellexpand"]
-jetstream = ["dep:orbitflare-sdk-proto", "dep:tonic", "dep:tonic-prost", "dep:tokio-stream", "dep:serde_yml", "dep:shellexpand"]
+grpc = ["dep:orbitflare-sdk-proto", "dep:tonic", "dep:tonic-prost", "dep:tokio-stream", "dep:serde_norway", "dep:shellexpand"]
+jetstream = ["dep:orbitflare-sdk-proto", "dep:tonic", "dep:tonic-prost", "dep:tokio-stream", "dep:serde_norway", "dep:shellexpand"]
 all = ["rpc", "ws", "grpc", "jetstream"]
 
 [dependencies]
@@ -36,7 +36,7 @@ orbitflare-sdk-proto = { version = "0.1.2", optional = true }
 tonic = { version = "0.14.5", optional = true }
 tonic-prost = { version = "0.14.5", optional = true }
 tokio-stream = { version = "0.1.19", optional = true }
-serde_yml = { version = "0.0.12", optional = true }
+serde_norway = { version = "0.9.42", optional = true }
 shellexpand = { version = "3.1.2", optional = true }
 
 [dev-dependencies]
