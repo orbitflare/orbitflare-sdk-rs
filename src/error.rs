@@ -5,7 +5,7 @@ pub type Result<T> = std::result::Result<T, Error>;
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
-    #[error("{0}")]
+    #[error("{}", chain(.0.as_ref()))]
     Transport(Box<dyn std::error::Error + Send + Sync>),
 
     #[error("rpc error {code}: {message}")]
@@ -60,7 +60,9 @@ impl Error {
     pub fn with_endpoint(self, endpoint: &str) -> Self {
         let endpoint = sanitize_url(endpoint);
         match self {
-            Error::Transport(e) => Error::Transport(format!("[{endpoint}] {e}").into()),
+            Error::Transport(e) => {
+                Error::Transport(format!("[{endpoint}] {}", chain(e.as_ref())).into())
+            }
             Error::Rpc { code, message } => Error::Rpc {
                 code,
                 message: format!("[{endpoint}] {message}"),
@@ -103,6 +105,20 @@ impl From<tonic::Status> for Error {
     }
 }
 
+fn chain(err: &(dyn std::error::Error + 'static)) -> String {
+    let mut out = err.to_string();
+    let mut source = err.source();
+    while let Some(inner) = source {
+        let text = inner.to_string();
+        if !out.ends_with(&text) {
+            out.push_str(": ");
+            out.push_str(&text);
+        }
+        source = inner.source();
+    }
+    out
+}
+
 pub(crate) fn sanitize_url(s: &str) -> String {
     let mut result = s.to_string();
     for needle in ["?api_key=", "&api_key="] {
@@ -123,5 +139,34 @@ pub(crate) struct SanitizedUrl<'a>(pub &'a str);
 impl fmt::Display for SanitizedUrl<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.write_str(&sanitize_url(self.0))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[derive(Debug)]
+    struct Outer(std::io::Error);
+
+    impl fmt::Display for Outer {
+        fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+            f.write_str("transport error")
+        }
+    }
+
+    impl std::error::Error for Outer {
+        fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+            Some(&self.0)
+        }
+    }
+
+    #[test]
+    fn transport_errors_show_their_cause() {
+        let err = Error::Transport(Box::new(Outer(std::io::Error::new(
+            std::io::ErrorKind::ConnectionRefused,
+            "connection refused",
+        ))));
+        assert_eq!(err.to_string(), "transport error: connection refused");
     }
 }

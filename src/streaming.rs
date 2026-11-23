@@ -23,6 +23,7 @@ use crate::retry::RetryPolicy;
 
 pub(crate) const DEFAULT_PING_INTERVAL_SECS: u64 = 10;
 pub(crate) const DEFAULT_MAX_MISSED_PONGS: u32 = 3;
+pub(crate) const DEFAULT_MAX_DECODING_MESSAGE_SIZE: usize = 64 * 1024 * 1024;
 
 pub(crate) type AuthChannel = InterceptedService<Channel, ApiKeyInterceptor>;
 
@@ -50,19 +51,37 @@ pub(crate) struct StreamConfig {
     pub ping_interval_secs: u64,
     pub max_missed_pongs: u32,
     pub channel_capacity: usize,
+    pub max_decoding_message_size: usize,
 }
 
 impl StreamConfig {
     pub async fn connect(&self, url: &str) -> Result<AuthChannel> {
-        let endpoint = Channel::from_shared(url.to_string())
-            .map_err(|e| Error::Config(format!("invalid endpoint: {e}")))?;
-        let channel = endpoint
+        #[cfg_attr(not(feature = "tls"), allow(unused_mut))]
+        let mut endpoint = Channel::from_shared(url.to_string())
+            .map_err(|e| Error::Config(format!("invalid endpoint: {e}")))?
             .timeout(Duration::from_secs(self.timeout_secs))
-            .tcp_keepalive(Some(Duration::from_secs(self.keepalive_secs)))
             .connect_timeout(Duration::from_secs(self.timeout_secs))
-            .connect()
-            .await
-            .map_err(Error::transport)?;
+            .tcp_nodelay(true)
+            .tcp_keepalive(Some(Duration::from_secs(self.keepalive_secs)))
+            .http2_keep_alive_interval(Duration::from_secs(20))
+            .keep_alive_timeout(Duration::from_secs(10))
+            .keep_alive_while_idle(true)
+            .http2_adaptive_window(true);
+        if url.starts_with("https://") {
+            #[cfg(feature = "tls")]
+            {
+                endpoint = endpoint
+                    .tls_config(tonic::transport::ClientTlsConfig::new().with_webpki_roots())
+                    .map_err(|e| Error::Config(format!("TLS setup failed: {e}")))?;
+            }
+            #[cfg(not(feature = "tls"))]
+            {
+                return Err(Error::Config(
+                    "https endpoints need the `tls` feature of orbitflare-sdk".into(),
+                ));
+            }
+        }
+        let channel = endpoint.connect().await.map_err(Error::transport)?;
         Ok(InterceptedService::new(
             channel,
             ApiKeyInterceptor(self.api_key.clone()),
@@ -80,6 +99,7 @@ pub(crate) struct StreamConfigBuilder {
     ping_interval_secs: u64,
     max_missed_pongs: u32,
     channel_capacity: usize,
+    max_decoding_message_size: usize,
 }
 
 impl Default for StreamConfigBuilder {
@@ -94,6 +114,7 @@ impl Default for StreamConfigBuilder {
             ping_interval_secs: DEFAULT_PING_INTERVAL_SECS,
             max_missed_pongs: DEFAULT_MAX_MISSED_PONGS,
             channel_capacity: 4096,
+            max_decoding_message_size: DEFAULT_MAX_DECODING_MESSAGE_SIZE,
         }
     }
 }
@@ -146,6 +167,10 @@ impl StreamConfigBuilder {
         self.channel_capacity = cap;
     }
 
+    pub fn max_decoding_message_size(&mut self, bytes: usize) {
+        self.max_decoding_message_size = bytes;
+    }
+
     pub fn build(self, env_var: &str) -> Result<StreamConfig> {
         let url = self
             .url
@@ -178,6 +203,7 @@ impl StreamConfigBuilder {
             ping_interval_secs: self.ping_interval_secs,
             max_missed_pongs: self.max_missed_pongs,
             channel_capacity: self.channel_capacity,
+            max_decoding_message_size: self.max_decoding_message_size,
         })
     }
 }

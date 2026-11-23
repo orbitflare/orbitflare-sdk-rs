@@ -1,3 +1,4 @@
+#[cfg(any(feature = "rpc", feature = "ws"))]
 mod credentials;
 mod endpoint;
 

@@ -285,7 +285,8 @@ async fn run_tx_connection(
     tx: &mpsc::Sender<Result<SubscribeTransactionsResponse>>,
 ) -> Result<()> {
     let channel = rc.cfg.connect(url).await?;
-    let mut client = ProtoV2Client::new(channel);
+    let mut client =
+        ProtoV2Client::new(channel).max_decoding_message_size(rc.cfg.max_decoding_message_size);
 
     let (outbound_tx, outbound_rx) = mpsc::channel::<SubscribeTransactionsRequest>(16);
 
@@ -419,7 +420,8 @@ async fn run_slot_connection(
     tx: &mpsc::Sender<Result<SlotEvent>>,
 ) -> Result<()> {
     let channel = rc.cfg.connect(url).await?;
-    let mut client = ProtoV2Client::new(channel);
+    let mut client =
+        ProtoV2Client::new(channel).max_decoding_message_size(rc.cfg.max_decoding_message_size);
 
     let response = client.subscribe_slots(request).await?;
     let mut inbound = response.into_inner();
@@ -509,6 +511,11 @@ impl JetstreamClientBuilder {
 
     pub fn channel_capacity(mut self, cap: usize) -> Self {
         self.cfg.channel_capacity(cap);
+        self
+    }
+
+    pub fn max_decoding_message_size(mut self, bytes: usize) -> Self {
+        self.cfg.max_decoding_message_size(bytes);
         self
     }
 

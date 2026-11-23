@@ -18,7 +18,8 @@ rpc = ["dep:reqwest", "dep:serde_json"]
 ws = ["rpc", "dep:tokio-tungstenite", "dep:futures-util"]
 grpc = ["dep:orbitflare-sdk-proto", "dep:tonic", "dep:tonic-prost", "dep:tokio-stream", "dep:serde_norway", "dep:shellexpand"]
 jetstream = ["dep:orbitflare-sdk-proto", "dep:tonic", "dep:tonic-prost", "dep:tokio-stream", "dep:serde_norway", "dep:shellexpand"]
-all = ["rpc", "ws", "grpc", "jetstream"]
+tls = ["tonic?/tls-ring", "tonic?/tls-webpki-roots"]
+all = ["rpc", "ws", "grpc", "jetstream", "tls"]
 
 [dependencies]
 thiserror = "2.0.21"

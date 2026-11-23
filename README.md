@@ -23,6 +23,7 @@ Only the RPC client is enabled by default. Enable what you need:
 cargo add orbitflare-sdk --features grpc         # gRPC streaming (Yellowstone Geyser)
 cargo add orbitflare-sdk --features jetstream    # JetStream streaming
 cargo add orbitflare-sdk --features ws           # WebSocket subscriptions
+cargo add orbitflare-sdk --features tls          # https:// gRPC and JetStream endpoints
 cargo add orbitflare-sdk --features all          # Everything
 ```
 
@@ -501,11 +502,15 @@ tokio::spawn(async move {
 
 Events never hold the stream back: a reader that falls behind gets `Lagged` instead. The first call to `events()` also returns what happened before it was called.
 
+### Connection settings
+
+gRPC and JetStream connections send HTTP/2 keepalive pings, and accept messages up to 64 MiB (tonic's own default of 4 MiB rejects some blocks). Change the limit with `.max_decoding_message_size(bytes)` on the builder. `https://` endpoints need the `tls` feature.
+
 ## Environment variables
 
 | Variable | Used by | Purpose |
 |---|---|---|
-| `ORBITFLARE_LICENSE_KEY` | RPC, WebSocket | API key appended to endpoint URLs |
+| `ORBITFLARE_LICENSE_KEY` | All clients | API key: appended to RPC and WebSocket URLs, sent as `x-token` to gRPC and JetStream |
 | `ORBITFLARE_RPC_URL` | RPC | Default endpoint if `.url()` is not called |
 | `ORBITFLARE_WS_URL` | WebSocket | Default endpoint if `.url()` is not called |
 | `ORBITFLARE_GRPC_URL` | gRPC | Default endpoint if `.url()` is not called |

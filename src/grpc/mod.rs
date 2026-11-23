@@ -242,7 +242,8 @@ async fn run_connection(
     tx: &mpsc::Sender<Result<SubscribeUpdate>>,
 ) -> Result<()> {
     let channel = rc.cfg.connect(url).await?;
-    let mut client = ProtoGeyserClient::new(channel);
+    let mut client =
+        ProtoGeyserClient::new(channel).max_decoding_message_size(rc.cfg.max_decoding_message_size);
 
     while let Ok(mut update) = session.commands.try_recv() {
         update.from_slot = None;
@@ -394,6 +395,11 @@ impl GeyserClientBuilder {
 
     pub fn channel_capacity(mut self, cap: usize) -> Self {
         self.cfg.channel_capacity(cap);
+        self
+    }
+
+    pub fn max_decoding_message_size(mut self, bytes: usize) -> Self {
+        self.cfg.max_decoding_message_size(bytes);
         self
     }
 

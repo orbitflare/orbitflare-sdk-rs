@@ -36,6 +36,7 @@ impl EndpointSet {
         self.inner.lock().unwrap()[idx].url.clone()
     }
 
+    #[cfg(any(feature = "rpc", feature = "ws"))]
     pub fn len(&self) -> usize {
         self.inner.lock().unwrap().len()
     }
