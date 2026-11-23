@@ -32,7 +32,7 @@ serde_json = { version = "1.0.154", optional = true }
 tokio-tungstenite = { version = "0.30.0", features = ["native-tls"], optional = true }
 futures-util = { version = "0.3.34", default-features = false, features = ["sink"], optional = true }
 
-orbitflare-sdk-proto = { version = "0.1.2", optional = true }
+orbitflare-sdk-proto = { version = "0.3.0", optional = true }
 tonic = { version = "0.14.5", optional = true }
 tonic-prost = { version = "0.14.5", optional = true }
 tokio-stream = { version = "0.1.19", optional = true }
@@ -77,6 +77,14 @@ required-features = ["jetstream"]
 [[example]]
 name = "jetstream_v2_basic"
 required-features = ["jetstream"]
+
+[[example]]
+name = "jetstream_v2_slots"
+required-features = ["jetstream"]
+
+[[example]]
+name = "grpc_block_footers"
+required-features = ["grpc"]
 
 [[example]]
 name = "grpc_filters"

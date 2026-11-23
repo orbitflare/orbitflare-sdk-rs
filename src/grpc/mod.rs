@@ -13,8 +13,8 @@ use orbitflare_sdk_proto::geyser::{
 pub mod filters;
 pub use crate::filters::{Lamports, Memcmp, MemcmpData};
 pub use filters::{
-    AccountFilter, BlockFilter, Commitment, DeshredTransactionFilter, SlotFilter,
-    SubscribeRequestBuilder, TransactionFilter,
+    AccountFilter, BlockFilter, BlockFooterFilter, Commitment, DeshredTransactionFilter,
+    SlotFilter, SubscribeRequestBuilder, TransactionFilter,
 };
 
 use crate::error::{Error, Result};

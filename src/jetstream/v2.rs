@@ -180,11 +180,21 @@ impl JetstreamClient {
     }
 
     pub fn subscribe_slots(&self) -> SlotStream {
+        self.subscribe_slots_with(SubscribeSlotsRequest::default())
+    }
+
+    pub fn subscribe_slots_with_block_footers(&self) -> SlotStream {
+        self.subscribe_slots_with(SubscribeSlotsRequest {
+            include_block_footer: true,
+        })
+    }
+
+    fn subscribe_slots_with(&self, request: SubscribeSlotsRequest) -> SlotStream {
         let (tx, rx) = mpsc::channel(self.inner.channel_capacity);
         let (shutdown_tx, shutdown_rx) = watch::channel(false);
 
         let rc = Reconnector::new(Arc::clone(&self.inner), shutdown_rx, "v2 slots");
-        tokio::spawn(slot_stream_task(rc, tx));
+        tokio::spawn(slot_stream_task(rc, request, tx));
 
         SlotStream {
             rx,
@@ -354,14 +364,18 @@ fn add_filters_req(filters: Vec<TxFilter>) -> SubscribeTransactionsRequest {
     }
 }
 
-async fn slot_stream_task(mut rc: Reconnector, tx: mpsc::Sender<Result<SlotEvent>>) {
+async fn slot_stream_task(
+    mut rc: Reconnector,
+    request: SubscribeSlotsRequest,
+    tx: mpsc::Sender<Result<SlotEvent>>,
+) {
     loop {
         if rc.should_stop() {
             return;
         }
         let (idx, url) = rc.pick();
 
-        match run_slot_connection(&url, idx, &mut rc, &tx).await {
+        match run_slot_connection(&url, idx, &mut rc, request, &tx).await {
             Ok(()) => return,
             Err(e) => {
                 if rc.after_error(idx, &url, e, &tx).await == ControlFlow::Break(()) {
@@ -376,12 +390,13 @@ async fn run_slot_connection(
     url: &str,
     idx: usize,
     rc: &mut Reconnector,
+    request: SubscribeSlotsRequest,
     tx: &mpsc::Sender<Result<SlotEvent>>,
 ) -> Result<()> {
     let channel = rc.cfg.connect(url).await?;
     let mut client = ProtoV2Client::new(channel);
 
-    let response = client.subscribe_slots(SubscribeSlotsRequest {}).await?;
+    let response = client.subscribe_slots(request).await?;
     let mut inbound = response.into_inner();
 
     rc.on_connected(idx);

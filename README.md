@@ -216,6 +216,27 @@ let mut stream = client.subscribe(request);
 
 `client.subscribe(request)` also accepts a raw proto `SubscribeRequest` if you'd rather construct it by hand.
 
+### Block footers
+
+Alpenglow block footers arrive as their own `UpdateOneof::BlockFooter` update as soon as the validator reports them, without waiting for the block. Join them with other per-block updates on `(slot, bank_id)`. Certificates are opt-in, and their BLS signatures are not verified:
+
+```rust
+use orbitflare_sdk::grpc::{BlockFooterFilter, Commitment, SubscribeRequestBuilder};
+use orbitflare_sdk::proto::geyser::subscribe_update::UpdateOneof;
+
+let request = SubscribeRequestBuilder::new()
+    .block_footer("footers", BlockFooterFilter::new().include_certificates(true))
+    .commitment(Commitment::Processed)
+    .build();
+
+let mut stream = client.subscribe(request);
+while let Some(update) = stream.next().await {
+    if let Some(UpdateOneof::BlockFooter(footer)) = update?.update_oneof {
+        println!("slot={} bank_id={} final_cert={}", footer.slot, footer.bank_id, footer.block_final_cert.is_some());
+    }
+}
+```
+
 ## JetStream
 
 ```yaml
@@ -325,6 +346,22 @@ let mut slots = client.subscribe_slots();
 while let Some(event) = slots.next().await {
     let event = event?;
     println!("slot={} status={:?}", event.slot, event.status());
+}
+```
+
+Opt into Alpenglow block footers on the same stream. They arrive as `SlotStatus::BlockFooter` events, at most once per slot, and are not ordered relative to `Complete`. The certificates' BLS signatures are not verified, so treat a footer as the leader's claim, not proof of finality:
+
+```rust
+use orbitflare_sdk::proto::jetstream::v2::SlotStatus;
+
+let mut slots = client.subscribe_slots_with_block_footers();
+while let Some(event) = slots.next().await {
+    let event = event?;
+    if event.status() == SlotStatus::BlockFooter {
+        if let Some(footer) = &event.block_footer {
+            println!("slot={} bank_hash={:?}", footer.slot, footer.bank_hash);
+        }
+    }
 }
 ```
 

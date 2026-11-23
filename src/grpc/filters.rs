@@ -74,6 +74,8 @@ impl From<TransactionFilter> for pb::SubscribeRequestFilterTransactions {
             account_include: f.account_include,
             account_exclude: f.account_exclude,
             account_required: f.account_required,
+            cuckoo_account_include: None,
+            token_accounts: None,
         }
     }
 }
@@ -190,6 +192,7 @@ impl From<AccountFilter> for pb::SubscribeRequestFilterAccounts {
             owner: f.owner,
             filters,
             nonempty_txn_signature: f.nonempty_txn_signature,
+            cuckoo_accounts_filter: None,
         }
     }
 }
@@ -271,6 +274,31 @@ impl From<BlockFilter> for pb::SubscribeRequestFilterBlocks {
             include_transactions: f.include_transactions,
             include_accounts: f.include_accounts,
             include_entries: f.include_entries,
+            cuckoo_account_include: None,
+        }
+    }
+}
+
+#[derive(Clone, Debug, Default)]
+pub struct BlockFooterFilter {
+    include_certificates: Option<bool>,
+}
+
+impl BlockFooterFilter {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    pub fn include_certificates(mut self, value: bool) -> Self {
+        self.include_certificates = Some(value);
+        self
+    }
+}
+
+impl From<BlockFooterFilter> for pb::SubscribeRequestFilterBlockFooter {
+    fn from(f: BlockFooterFilter) -> Self {
+        Self {
+            include_certificates: f.include_certificates,
         }
     }
 }
@@ -331,6 +359,7 @@ impl From<DeshredTransactionFilter> for pb::SubscribeRequestFilterDeshredTransac
             account_include: f.account_include,
             account_exclude: f.account_exclude,
             account_required: f.account_required,
+            include_update_parent: None,
         }
     }
 }
@@ -361,6 +390,7 @@ pub struct SubscribeRequestBuilder {
     blocks: HashMap<String, BlockFilter>,
     blocks_meta: Vec<String>,
     entry: Vec<String>,
+    block_footer: HashMap<String, BlockFooterFilter>,
     commitment: Option<Commitment>,
     accounts_data_slice: Vec<(u64, u64)>,
     from_slot: Option<u64>,
@@ -410,6 +440,11 @@ impl SubscribeRequestBuilder {
         self
     }
 
+    pub fn block_footer(mut self, name: impl Into<String>, filter: BlockFooterFilter) -> Self {
+        self.block_footer.insert(name.into(), filter);
+        self
+    }
+
     pub fn commitment(mut self, commitment: Commitment) -> Self {
         self.commitment = Some(commitment);
         self
@@ -455,7 +490,19 @@ impl SubscribeRequestBuilder {
         let entry = self
             .entry
             .into_iter()
-            .map(|k| (k, pb::SubscribeRequestFilterEntry {}))
+            .map(|k| {
+                (
+                    k,
+                    pb::SubscribeRequestFilterEntry {
+                        include_update_parent: None,
+                    },
+                )
+            })
+            .collect();
+        let block_footer = self
+            .block_footer
+            .into_iter()
+            .map(|(k, v)| (k, v.into()))
             .collect();
         let accounts_data_slice = self
             .accounts_data_slice
@@ -477,6 +524,7 @@ impl SubscribeRequestBuilder {
             // and ignores its filters, so the subscription would never start.
             ping: None,
             from_slot: self.from_slot,
+            block_footer,
         }
     }
 }

@@ -87,6 +87,8 @@ impl GeyserStreamConfig {
                         account_include: f.account_include.clone(),
                         account_exclude: f.account_exclude.clone(),
                         account_required: f.account_required.clone(),
+                        cuckoo_account_include: None,
+                        token_accounts: None,
                     },
                 )
             })
@@ -103,6 +105,7 @@ impl GeyserStreamConfig {
                         owner: f.owner.clone(),
                         filters: vec![],
                         nonempty_txn_signature: None,
+                        cuckoo_accounts_filter: None,
                     },
                 )
             })
@@ -136,6 +139,7 @@ impl GeyserStreamConfig {
             // and ignores its filters, so the subscription would never start.
             ping: None,
             from_slot: None,
+            block_footer: HashMap::new(),
         }
     }
 }

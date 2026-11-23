@@ -2,7 +2,7 @@
 #[test]
 fn grpc_builder_maps_all_fields() {
     use orbitflare_sdk::grpc::{
-        AccountFilter, BlockFilter, Commitment, Lamports, Memcmp, SlotFilter,
+        AccountFilter, BlockFilter, BlockFooterFilter, Commitment, Lamports, Memcmp, SlotFilter,
         SubscribeRequestBuilder, TransactionFilter,
     };
 
@@ -30,6 +30,8 @@ fn grpc_builder_maps_all_fields() {
         .blocks("bl", BlockFilter::new().include_transactions(true))
         .blocks_meta("bm")
         .entry("en")
+        .block_footer("bf", BlockFooterFilter::new().include_certificates(true))
+        .block_footer("bf-lean", BlockFooterFilter::new())
         .accounts_data_slice(8, 32)
         .commitment(Commitment::Confirmed)
         .from_slot(42)
@@ -53,6 +55,11 @@ fn grpc_builder_maps_all_fields() {
     assert_eq!(req.blocks["bl"].include_transactions, Some(true));
     assert!(req.blocks_meta.contains_key("bm"));
     assert!(req.entry.contains_key("en"));
+    assert_eq!(req.entry["en"].include_update_parent, None);
+    assert_eq!(req.block_footer["bf"].include_certificates, Some(true));
+    assert_eq!(req.block_footer["bf-lean"].include_certificates, None);
+    assert_eq!(tx.token_accounts, None);
+    assert!(tx.cuckoo_account_include.is_none());
     assert_eq!(req.accounts_data_slice.len(), 1);
     assert_eq!(req.accounts_data_slice[0].offset, 8);
     assert_eq!(req.accounts_data_slice[0].length, 32);
