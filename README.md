@@ -237,6 +237,41 @@ while let Some(update) = stream.next().await {
 }
 ```
 
+### Resuming after a reconnect
+
+`subscribe` sends the same request on every reconnect. `subscribe_with` builds the request for each connection instead, so a reconnect can resume from where the stream left off and pick up your current filters. The callback gets the endpoint, the attempt number, whether this is a reconnect, and the highest slot the stream has seen:
+
+```rust
+const JUPITER: &str = "JUP6LkbZbjS1jKKwapdHNy74zcZ3tLUZoi5QNyVTaV4";
+const PUMP: &str = "6EF8rrecthR5Dkzon8Nwu78hRvfCKubJ14M5uBEwF6P";
+
+let mut stream = client.subscribe_with(|info| {
+    let mut request = SubscribeRequestBuilder::new()
+        .transactions("swaps", TransactionFilter::new().vote(false).account_include([JUPITER]))
+        .commitment(Commitment::Confirmed)
+        .build();
+    request.from_slot = info.last_slot.map(|slot| slot.saturating_sub(32));
+    request
+});
+```
+
+When a request sets `from_slot`, the stream first asks the server how far back it can replay. A slot older than that starts at the oldest available one, and a server without replay starts live, instead of failing the subscription. Both are reported as connection events (below).
+
+### Changing filters on a live stream
+
+Yellowstone applies a new request on an open stream in place of the previous one, so filters can change without reconnecting and without missing anything in between. `update` sends one; `handle()` gives a cloneable handle that works from any task:
+
+```rust
+let handle = stream.handle();
+handle.update(
+    SubscribeRequestBuilder::new()
+        .transactions("swaps", TransactionFilter::new().vote(false).account_include([JUPITER, PUMP]))
+        .build(),
+)?;
+```
+
+`from_slot` is ignored on an update. A stream opened with `subscribe` keeps the updated request for later reconnects; one opened with `subscribe_with` calls its callback, which should reflect the change.
+
 ## JetStream
 
 ```yaml
@@ -437,6 +472,34 @@ let client = RpcClientBuilder::new()
     })
     .build()?;
 ```
+
+### Connection events
+
+Reconnects are invisible in the update stream itself. Every gRPC and JetStream stream (v1 and v2, transactions and slots) also reports its connection lifecycle, for health checks, metrics, or deciding a gap needs backfilling:
+
+```rust
+use orbitflare_sdk::ConnectionEvent;
+
+let mut events = stream.events();
+tokio::spawn(async move {
+    while let Some(event) = events.recv().await {
+        match event {
+            ConnectionEvent::Connecting { endpoint, attempt } => println!("connecting to {endpoint} (try {attempt})"),
+            ConnectionEvent::Connected { endpoint } => println!("streaming from {endpoint}"),
+            ConnectionEvent::Disconnected { endpoint, error, retry_in } => match retry_in {
+                Some(delay) => println!("{endpoint} dropped ({error}); retrying in {delay:?}"),
+                None => println!("{endpoint} dropped ({error}); giving up"),
+            },
+            ConnectionEvent::ReplayClamped { requested, available } => println!("slots {requested}..{available} are no longer replayable"),
+            ConnectionEvent::ReplayUnavailable { requested } => println!("no replay; started live instead of at {requested}"),
+            ConnectionEvent::Lagged { missed } => println!("missed {missed} events"),
+            _ => {}
+        }
+    }
+});
+```
+
+Events never hold the stream back: a reader that falls behind gets `Lagged` instead. The first call to `events()` also returns what happened before it was called.
 
 ## Environment variables
 

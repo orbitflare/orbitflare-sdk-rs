@@ -6,7 +6,6 @@
 //! plumbing, and the reconnect/failover loop — so each client only has to
 //! implement the bit that is actually unique to it: what it does on a live
 //! connection.
-
 use std::ops::ControlFlow;
 use std::sync::Arc;
 use std::time::Duration;
@@ -19,6 +18,7 @@ use tonic::transport::Channel;
 
 use crate::endpoint::EndpointSet;
 use crate::error::{Error, Result, SanitizedUrl};
+use crate::events::{ConnectionEvent, EventSender, endpoint_label};
 use crate::retry::RetryPolicy;
 
 pub(crate) const DEFAULT_PING_INTERVAL_SECS: u64 = 10;
@@ -187,6 +187,8 @@ pub(crate) struct Reconnector {
     shutdown_rx: watch::Receiver<bool>,
     attempt: u32,
     label: &'static str,
+    events: EventSender,
+    endpoint: String,
 }
 
 impl Reconnector {
@@ -194,13 +196,25 @@ impl Reconnector {
         cfg: Arc<StreamConfig>,
         shutdown_rx: watch::Receiver<bool>,
         label: &'static str,
+        events: EventSender,
     ) -> Self {
         Self {
             cfg,
             shutdown_rx,
             attempt: 0,
             label,
+            events,
+            endpoint: String::new(),
         }
+    }
+
+    pub fn emit(&self, event: ConnectionEvent) {
+        self.events.send(event);
+    }
+
+    #[cfg(feature = "grpc")]
+    pub fn attempt(&self) -> u32 {
+        self.attempt
     }
 
     pub fn should_stop(&self) -> bool {
@@ -216,6 +230,11 @@ impl Reconnector {
         let idx = self.cfg.endpoints.pick();
         let url = self.cfg.endpoints.get(idx);
         tracing::info!(endpoint = %SanitizedUrl(&url), attempt = self.attempt, "connecting ({})", self.label);
+        self.endpoint = endpoint_label(&url);
+        self.emit(ConnectionEvent::Connecting {
+            endpoint: self.endpoint.clone(),
+            attempt: self.attempt,
+        });
         (idx, url)
     }
 
@@ -223,6 +242,9 @@ impl Reconnector {
         self.cfg.endpoints.mark_success(idx);
         self.attempt = 0;
         tracing::info!("connected, streaming ({})", self.label);
+        self.emit(ConnectionEvent::Connected {
+            endpoint: self.endpoint.clone(),
+        });
     }
 
     pub async fn after_error<T>(
@@ -235,11 +257,21 @@ impl Reconnector {
         self.cfg.endpoints.mark_failure(idx);
 
         if !self.cfg.retry.has_attempts_left(self.attempt) {
+            self.emit(ConnectionEvent::Disconnected {
+                endpoint: self.endpoint.clone(),
+                error: err.to_string(),
+                retry_in: None,
+            });
             let _ = tx.send(Err(err.with_endpoint(url))).await;
             return ControlFlow::Break(());
         }
 
         let delay = self.cfg.retry.delay_for_attempt(self.attempt);
+        self.emit(ConnectionEvent::Disconnected {
+            endpoint: self.endpoint.clone(),
+            error: err.to_string(),
+            retry_in: Some(delay),
+        });
         tracing::warn!(
             error = %err,
             endpoint = %SanitizedUrl(url),

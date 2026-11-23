@@ -148,3 +148,34 @@ async fn live_transactions_enriched() {
     }
     println!("{} txs, {} v1", txs.len(), v1.len());
 }
+
+#[tokio::test]
+#[ignore]
+async fn live_streams_report_connection_events() {
+    use orbitflare_sdk::ConnectionEvent;
+    let c = client();
+    let mut txs = c.subscribe_transactions(vec![
+        TransactionFilter::new()
+            .account_include([COMPUTE_BUDGET])
+            .with_id("events"),
+    ]);
+    let mut slots = c.subscribe_slots();
+    let mut tx_events = txs.events();
+    let mut slot_events = slots.events();
+    let _ = tokio::time::timeout(Duration::from_secs(20), txs.next()).await;
+    let _ = tokio::time::timeout(Duration::from_secs(20), slots.next()).await;
+    for events in [&mut tx_events, &mut slot_events] {
+        let first = events.recv().await;
+        assert!(
+            matches!(first, Some(ConnectionEvent::Connecting { attempt: 1, .. })),
+            "{first:?}"
+        );
+        let second = events.recv().await;
+        assert!(
+            matches!(second, Some(ConnectionEvent::Connected { .. })),
+            "{second:?}"
+        );
+    }
+    txs.close();
+    slots.close();
+}

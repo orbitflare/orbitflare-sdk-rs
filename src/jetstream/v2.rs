@@ -15,6 +15,7 @@ use orbitflare_sdk_proto::jetstream::v2::{
 };
 
 use crate::error::{Error, Result};
+use crate::events::{ConnectionEvents, EventHub};
 use crate::retry::RetryPolicy;
 use crate::streaming::{Reconnector, StreamConfig, StreamConfigBuilder, unary_with_failover};
 
@@ -123,6 +124,7 @@ impl TxFilterHandle {
 pub struct TransactionStream {
     rx: mpsc::Receiver<Result<SubscribeTransactionsResponse>>,
     handle: TxFilterHandle,
+    events: EventHub,
     _shutdown: watch::Sender<bool>,
 }
 
@@ -133,6 +135,10 @@ impl TransactionStream {
 
     pub fn handle(&self) -> TxFilterHandle {
         self.handle.clone()
+    }
+
+    pub fn events(&self) -> ConnectionEvents {
+        self.events.subscribe()
     }
 
     pub fn add_filters(&self, filters: Vec<TxFilter>) -> Result<()> {
@@ -150,12 +156,17 @@ impl TransactionStream {
 
 pub struct SlotStream {
     rx: mpsc::Receiver<Result<SlotEvent>>,
+    events: EventHub,
     _shutdown: watch::Sender<bool>,
 }
 
 impl SlotStream {
     pub async fn next(&mut self) -> Option<Result<SlotEvent>> {
         self.rx.recv().await
+    }
+
+    pub fn events(&self) -> ConnectionEvents {
+        self.events.subscribe()
     }
 
     pub fn close(self) {
@@ -169,12 +180,19 @@ impl JetstreamClient {
         let (shutdown_tx, shutdown_rx) = watch::channel(false);
         let (cmd_tx, cmd_rx) = mpsc::unbounded_channel();
 
-        let rc = Reconnector::new(Arc::clone(&self.inner), shutdown_rx, "v2 tx");
+        let events = EventHub::new();
+        let rc = Reconnector::new(
+            Arc::clone(&self.inner),
+            shutdown_rx,
+            "v2 tx",
+            events.sender(),
+        );
         tokio::spawn(tx_stream_task(rc, filters, cmd_rx, tx));
 
         TransactionStream {
             rx,
             handle: TxFilterHandle { cmd_tx },
+            events,
             _shutdown: shutdown_tx,
         }
     }
@@ -193,11 +211,18 @@ impl JetstreamClient {
         let (tx, rx) = mpsc::channel(self.inner.channel_capacity);
         let (shutdown_tx, shutdown_rx) = watch::channel(false);
 
-        let rc = Reconnector::new(Arc::clone(&self.inner), shutdown_rx, "v2 slots");
+        let events = EventHub::new();
+        let rc = Reconnector::new(
+            Arc::clone(&self.inner),
+            shutdown_rx,
+            "v2 slots",
+            events.sender(),
+        );
         tokio::spawn(slot_stream_task(rc, request, tx));
 
         SlotStream {
             rx,
+            events,
             _shutdown: shutdown_tx,
         }
     }

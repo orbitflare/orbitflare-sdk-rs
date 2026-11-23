@@ -12,6 +12,7 @@ use orbitflare_sdk_proto::jetstream::{
 };
 
 use crate::error::{Error, Result};
+use crate::events::{ConnectionEvents, EventHub};
 use crate::retry::RetryPolicy;
 use crate::streaming::{Reconnector, StreamConfig, StreamConfigBuilder};
 
@@ -103,12 +104,17 @@ pub struct JetstreamClient {
 
 pub struct JetstreamStream {
     rx: mpsc::Receiver<Result<SubscribeUpdate>>,
+    events: EventHub,
     _shutdown: watch::Sender<bool>,
 }
 
 impl JetstreamStream {
     pub async fn next(&mut self) -> Option<Result<SubscribeUpdate>> {
         self.rx.recv().await
+    }
+
+    pub fn events(&self) -> ConnectionEvents {
+        self.events.subscribe()
     }
 
     pub fn close(self) {
@@ -126,11 +132,18 @@ impl JetstreamClient {
         let (tx, rx) = mpsc::channel(self.inner.channel_capacity);
         let (shutdown_tx, shutdown_rx) = watch::channel(false);
 
-        let rc = Reconnector::new(Arc::clone(&self.inner), shutdown_rx, "jetstream");
+        let events = EventHub::new();
+        let rc = Reconnector::new(
+            Arc::clone(&self.inner),
+            shutdown_rx,
+            "jetstream",
+            events.sender(),
+        );
         tokio::spawn(stream_task(rc, request, tx));
 
         JetstreamStream {
             rx,
+            events,
             _shutdown: shutdown_tx,
         }
     }
@@ -192,8 +205,8 @@ async fn run_connection(
             msg = inbound.next() => {
                 match msg {
                     Some(Ok(update)) => {
+                        missed_pongs = 0;
                         if let Some(UpdateOneof::Pong(_)) = &update.update_oneof {
-                            missed_pongs = 0;
                             continue;
                         }
                         if tx.send(Ok(update)).await.is_err() {

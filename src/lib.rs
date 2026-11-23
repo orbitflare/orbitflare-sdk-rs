@@ -16,6 +16,9 @@ pub mod ws;
 #[cfg(any(feature = "grpc", feature = "jetstream"))]
 pub mod config;
 
+#[cfg(any(feature = "grpc", feature = "jetstream"))]
+pub mod events;
+
 #[cfg(feature = "grpc")]
 pub(crate) mod filters;
 
@@ -41,10 +44,13 @@ pub use rpc::{
 pub use ws::{WsClient, WsClientBuilder, WsSubscription};
 
 #[cfg(feature = "grpc")]
-pub use grpc::{GeyserClient, GeyserClientBuilder, GeyserStream};
+pub use grpc::{ConnectInfo, GeyserClient, GeyserClientBuilder, GeyserHandle, GeyserStream};
 
 #[cfg(feature = "jetstream")]
 pub use jetstream::{JetstreamClient, JetstreamClientBuilder, JetstreamStream};
+
+#[cfg(any(feature = "grpc", feature = "jetstream"))]
+pub use events::{ConnectionEvent, ConnectionEvents};
 
 #[cfg(any(feature = "grpc", feature = "jetstream"))]
 pub use orbitflare_sdk_proto as proto;

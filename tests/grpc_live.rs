@@ -137,3 +137,141 @@ async fn live_bank_ids_and_v1_transactions() {
     assert!(txs > 0 && slots > 0, "txs={txs} slots={slots}");
     println!("{txs} txs ({v1} v1), {slots} slot updates");
 }
+
+const JUPITER: &str = "JUP6LkbZbjS1jKKwapdHNy74zcZ3tLUZoi5QNyVTaV4";
+const PUMP: &str = "6EF8rrecthR5Dkzon8Nwu78hRvfCKubJ14M5uBEwF6P";
+
+fn watching(account: &str) -> SubscribeRequest {
+    SubscribeRequestBuilder::new()
+        .transactions(
+            "t",
+            TransactionFilter::new()
+                .vote(false)
+                .account_include([account]),
+        )
+        .slots("s", SlotFilter::new())
+        .commitment(Commitment::Processed)
+        .build()
+}
+
+fn accounts_of(update: &SubscribeUpdate) -> Option<Vec<String>> {
+    let Some(U::Transaction(tx)) = &update.update_oneof else {
+        return None;
+    };
+    let info = tx.transaction.as_ref()?;
+    let mut keys: Vec<Vec<u8>> = info
+        .transaction
+        .as_ref()?
+        .message
+        .as_ref()?
+        .account_keys
+        .clone();
+    if let Some(meta) = &info.meta {
+        keys.extend(meta.loaded_writable_addresses.iter().cloned());
+        keys.extend(meta.loaded_readonly_addresses.iter().cloned());
+    }
+    Some(keys.iter().map(|k| bs58::encode(k).into_string()).collect())
+}
+
+#[tokio::test]
+#[ignore]
+async fn live_update_replaces_filters_without_reconnecting() {
+    use orbitflare_sdk::ConnectionEvent;
+    let client = GeyserClientBuilder::new()
+        .build()
+        .expect("set ORBITFLARE_GRPC_URL");
+    let mut stream = client.subscribe(watching(JUPITER));
+    let mut events = stream.events();
+    let next_tx = async |stream: &mut orbitflare_sdk::GeyserStream| loop {
+        let update = stream.next().await.unwrap().expect("stream error");
+        if let Some(accounts) = accounts_of(&update) {
+            return accounts;
+        }
+    };
+    let first = tokio::time::timeout(Duration::from_secs(30), next_tx(&mut stream))
+        .await
+        .expect("no Jupiter transaction");
+    assert!(first.iter().any(|a| a == JUPITER));
+
+    stream.update(watching(PUMP)).unwrap();
+    let deadline = tokio::time::Instant::now() + Duration::from_secs(3);
+    while tokio::time::Instant::now() < deadline {
+        let _ = tokio::time::timeout_at(deadline, stream.next()).await;
+    }
+    for _ in 0..20 {
+        let accounts = tokio::time::timeout(Duration::from_secs(30), next_tx(&mut stream))
+            .await
+            .expect("no pump.fun transaction after the update");
+        assert!(
+            accounts.iter().any(|a| a == PUMP),
+            "old filter still applied"
+        );
+    }
+    let mut connects = 0;
+    while let Some(event) = events.try_recv() {
+        match event {
+            ConnectionEvent::Connected { .. } => connects += 1,
+            ConnectionEvent::Disconnected { error, .. } => panic!("disconnected: {error}"),
+            _ => {}
+        }
+    }
+    assert_eq!(connects, 1, "the update must not reconnect");
+    stream.close();
+}
+
+#[tokio::test]
+#[ignore]
+async fn live_subscribe_with_replays_from_the_requested_slot() {
+    use orbitflare_sdk::ConnectionEvent;
+    let client = GeyserClientBuilder::new()
+        .build()
+        .expect("set ORBITFLARE_GRPC_URL");
+    let mut probe = client.subscribe(watching(JUPITER));
+    let now = loop {
+        if let Some(U::Slot(s)) = probe.next().await.unwrap().unwrap().update_oneof {
+            break s.slot;
+        }
+    };
+    probe.close();
+
+    let from = now - 150;
+    let mut stream = client.subscribe_with(move |info| {
+        assert!(!info.reconnect);
+        SubscribeRequest {
+            from_slot: Some(from),
+            ..watching(JUPITER)
+        }
+    });
+    let first_tx_slot = loop {
+        let update = stream.next().await.unwrap().expect("stream error");
+        if let Some(U::Transaction(tx)) = update.update_oneof {
+            break tx.slot;
+        }
+    };
+    assert!(
+        first_tx_slot >= from && first_tx_slot < now,
+        "replay starts at {from}, got a first transaction at {first_tx_slot} (now {now})"
+    );
+    stream.close();
+
+    let mut old = client.subscribe_with(|_| SubscribeRequest {
+        from_slot: Some(1),
+        ..watching(JUPITER)
+    });
+    let mut events = old.events();
+    old.next().await.unwrap().expect("stream error");
+    let mut clamped = None;
+    while let Some(event) = events.try_recv() {
+        if let ConnectionEvent::ReplayClamped {
+            requested,
+            available,
+        } = event
+        {
+            clamped = Some((requested, available));
+        }
+    }
+    let (requested, available) = clamped.expect("expected the slot to be clamped");
+    assert_eq!(requested, 1);
+    assert!(available > 1 && available <= now, "{available}");
+    old.close();
+}
