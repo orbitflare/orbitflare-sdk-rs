@@ -316,6 +316,7 @@ async fn run_tx_connection(
                 match msg {
                     Some(Ok(resp)) => {
                         intervals_since_traffic = 0;
+                        rc.on_message();
                         if tx.send(Ok(resp)).await.is_err() {
                             return Ok(());
                         }
@@ -434,6 +435,7 @@ async fn run_slot_connection(
             msg = inbound.next() => {
                 match msg {
                     Some(Ok(event)) => {
+                        rc.on_message();
                         if tx.send(Ok(event)).await.is_err() {
                             return Ok(());
                         }

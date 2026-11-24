@@ -37,6 +37,16 @@ pub enum Error {
 }
 
 impl Error {
+    pub(crate) fn is_permanent(&self) -> bool {
+        matches!(
+            self,
+            Error::Grpc {
+                code: 3 | 7 | 12 | 16,
+                ..
+            }
+        )
+    }
+
     pub fn is_retryable(&self) -> bool {
         match self {
             Error::Transport(_) | Error::Timeout | Error::RateLimited { .. } => true,

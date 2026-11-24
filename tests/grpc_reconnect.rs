@@ -31,6 +31,7 @@ struct State {
     next_slot: AtomicU64,
     drop_after: AtomicU64,
     replay: Mutex<Option<Option<u64>>>,
+    reject: Mutex<Option<tonic::Code>>,
 }
 
 impl State {
@@ -87,6 +88,11 @@ impl tonic::server::StreamingService<SubscribeRequest> for Subscribe {
                                     subscribed = true;
                                 }
                                 state.requests.lock().unwrap().push((connection, req));
+                                let reject = *state.reject.lock().unwrap();
+                                if let Some(code) = reject {
+                                    let _ = tx.send(Err(tonic::Status::new(code, "mock reject"))).await;
+                                    return;
+                                }
                             }
                             _ => return,
                         },
@@ -484,4 +490,58 @@ async fn an_exhausted_retry_policy_ends_the_stream_and_says_so() {
         })
         .collect();
     assert_eq!(retries, [true, false], "{events:?}");
+}
+
+async fn rejected(code: tonic::Code, max_attempts: u32) -> (Vec<ConnectionEvent>, u32) {
+    let state = Arc::new(State::default());
+    *state.reject.lock().unwrap() = Some(code);
+    let url = serve(Arc::clone(&state)).await;
+    let client = GeyserClientBuilder::new()
+        .url(&url)
+        .retry(RetryPolicy {
+            initial_delay: Duration::from_millis(10),
+            max_delay: Duration::from_millis(10),
+            max_attempts,
+            ..RetryPolicy::default()
+        })
+        .build()
+        .unwrap();
+    let mut stream = client.subscribe(named("x"));
+    let mut events = stream.events();
+    let first = tokio::time::timeout(Duration::from_secs(5), stream.next())
+        .await
+        .expect("the rejection never reached the caller");
+    assert!(matches!(first, Some(Err(_))), "{first:?}");
+    assert!(stream.next().await.is_none());
+    (
+        drain(&mut events).await,
+        state.connections.load(Ordering::SeqCst),
+    )
+}
+
+#[tokio::test]
+async fn a_rejected_request_is_not_retried() {
+    let (events, connections) = rejected(tonic::Code::InvalidArgument, 0).await;
+    assert_eq!(connections, 1, "{events:?}");
+    assert!(
+        matches!(
+            events.last(),
+            Some(ConnectionEvent::Disconnected { retry_in: None, .. })
+        ),
+        "{events:?}"
+    );
+}
+
+#[tokio::test]
+async fn connections_that_fail_before_any_message_count_against_the_retry_policy() {
+    let (events, connections) = rejected(tonic::Code::Internal, 3).await;
+    assert_eq!(connections, 3, "{events:?}");
+    let attempts: Vec<u32> = events
+        .iter()
+        .filter_map(|e| match e {
+            ConnectionEvent::Connecting { attempt, .. } => Some(*attempt),
+            _ => None,
+        })
+        .collect();
+    assert_eq!(attempts, [1, 2, 3], "{events:?}");
 }

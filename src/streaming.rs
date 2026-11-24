@@ -65,8 +65,7 @@ impl StreamConfig {
             .tcp_keepalive(Some(Duration::from_secs(self.keepalive_secs)))
             .http2_keep_alive_interval(Duration::from_secs(20))
             .keep_alive_timeout(Duration::from_secs(10))
-            .keep_alive_while_idle(true)
-            .http2_adaptive_window(true);
+            .keep_alive_while_idle(true);
         if url.starts_with("https://") {
             #[cfg(feature = "tls")]
             {
@@ -266,11 +265,14 @@ impl Reconnector {
 
     pub fn on_connected(&mut self, idx: usize) {
         self.cfg.endpoints.mark_success(idx);
-        self.attempt = 0;
         tracing::info!("connected, streaming ({})", self.label);
         self.emit(ConnectionEvent::Connected {
             endpoint: self.endpoint.clone(),
         });
+    }
+
+    pub fn on_message(&mut self) {
+        self.attempt = 0;
     }
 
     pub async fn after_error<T>(
@@ -282,7 +284,7 @@ impl Reconnector {
     ) -> ControlFlow<()> {
         self.cfg.endpoints.mark_failure(idx);
 
-        if !self.cfg.retry.has_attempts_left(self.attempt) {
+        if err.is_permanent() || !self.cfg.retry.has_attempts_left(self.attempt) {
             self.emit(ConnectionEvent::Disconnected {
                 endpoint: self.endpoint.clone(),
                 error: err.to_string(),

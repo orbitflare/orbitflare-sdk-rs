@@ -286,6 +286,7 @@ async fn run_connection(
                 match msg {
                     Some(Ok(update)) => {
                         missed_pongs = 0;
+                        rc.on_message();
                         if let Some(oneof) = &update.update_oneof {
                             if let UpdateOneof::Pong(_) = oneof {
                                 continue;
